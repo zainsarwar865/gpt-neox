@@ -1,0 +1,1 @@
+../../deepy.py ../../train.py ../moe_125M_8c1_3072_lora_8_rank_64_lr_6e-4_topk.yml

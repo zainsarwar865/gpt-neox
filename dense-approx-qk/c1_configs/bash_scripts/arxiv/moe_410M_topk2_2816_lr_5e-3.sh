@@ -1,0 +1,1 @@
+../../deepy.py ../../train.py ../moe_410M_topk2_2816_lr_5e-3.yml

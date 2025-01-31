@@ -1,0 +1,1 @@
+../../deepy.py ../../train.py ../moe_125M_topk2_3072.yml

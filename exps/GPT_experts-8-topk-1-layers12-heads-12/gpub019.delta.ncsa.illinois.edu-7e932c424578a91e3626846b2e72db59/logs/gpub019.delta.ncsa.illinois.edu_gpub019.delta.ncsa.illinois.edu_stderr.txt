@@ -1,0 +1,58 @@
+WARNING:root:Outstanding DeepSpeed issue means that pp>0, zero1, and bf16 will break without fp32 grads
+Using /u/zsarwar/.cache/torch_extensions/py312_cu124 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /u/zsarwar/.cache/torch_extensions/py312_cu124/fused_adam/build.ninja...
+/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/torch/utils/cpp_extension.py:1964: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module fused_adam...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+Loading extension module fused_adam...
+/u/zsarwar/gpt-neox/gpt-neox/megatron/data/gpt2_dataset.py:222: UserWarning: The torch.cuda.*DtypeTensor constructors are no longer recommended. It's best to use methods such as torch.tensor(data, dtype=*, device='cuda') to create tensors. (Triggered internally at /opt/conda/conda-bld/pytorch_1729647378361/work/torch/csrc/tensor/python_tensor.cpp:78.)
+  counts = torch.cuda.LongTensor([1])
+Traceback (most recent call last):
+  File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../deepy.py", line 41, in <module>
+    main()
+  File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../deepy.py", line 37, in main
+    deepspeed.launcher.runner.main(deepspeed_main_args)
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/launcher/runner.py", line 601, in main
+    result.wait()
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/subprocess.py", line 1264, in wait
+    return self._wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/subprocess.py", line 2053, in _wait
+    (pid, sts) = self._try_wait(0)
+                 ^^^^^^^^^^^^^^^^^
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/subprocess.py", line 2011, in _try_wait
+    (pid, sts) = os.waitpid(self.pid, wait_flags)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+WARNING:root:Outstanding DeepSpeed issue means that pp>0, zero1, and bf16 will break without fp32 grads
+Using /u/zsarwar/.cache/torch_extensions/py312_cu124 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /u/zsarwar/.cache/torch_extensions/py312_cu124/fused_adam/build.ninja...
+/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/torch/utils/cpp_extension.py:1964: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module fused_adam...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+Loading extension module fused_adam...
+/u/zsarwar/gpt-neox/gpt-neox/megatron/data/gpt2_dataset.py:222: UserWarning: The torch.cuda.*DtypeTensor constructors are no longer recommended. It's best to use methods such as torch.tensor(data, dtype=*, device='cuda') to create tensors. (Triggered internally at /opt/conda/conda-bld/pytorch_1729647378361/work/torch/csrc/tensor/python_tensor.cpp:78.)
+  counts = torch.cuda.LongTensor([1])
+Traceback (most recent call last):
+  File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../deepy.py", line 41, in <module>
+    main()
+  File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../deepy.py", line 37, in main
+    deepspeed.launcher.runner.main(deepspeed_main_args)
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/launcher/runner.py", line 601, in main
+    result.wait()
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/subprocess.py", line 1264, in wait
+    return self._wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/subprocess.py", line 2053, in _wait
+    (pid, sts) = self._try_wait(0)
+                 ^^^^^^^^^^^^^^^^^
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/subprocess.py", line 2011, in _try_wait
+    (pid, sts) = os.waitpid(self.pid, wait_flags)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

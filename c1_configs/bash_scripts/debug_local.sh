@@ -1,0 +1,1 @@
+../../deepy.py ../../train.py ../debug_local.yml

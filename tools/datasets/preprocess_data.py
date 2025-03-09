@@ -15,6 +15,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+
+# python3  preprocess_data.py \
+# --input "/scratch/bdgs/zsarwar/datasets/raw/fineweb_edu_12B.jsonl" \
+# --tokenizer-type HFTokenizer \
+# --vocab-file "/u/zsarwar/data/tokenizers/llama3_tokenizer.json" \
+# --output-prefix "/scratch/bdgs/zsarwar/datasets/tokenized" \
+# --workers 64 \
+# --log-interval 10000
+
+
+
 """Processing data for pretraining."""
 
 import argparse
@@ -222,6 +234,7 @@ def main(input_args=None):
         # add each tokenized document / sentence
         for key, sentences in doc.items():
             for sentence in sentences:
+                sentence = sentence[:-1]
                 builders[key].add_item(np.array(sentence, dtype=builders[key].dtype))
             # separate with eos token
             builders[key].end_document()

@@ -1,0 +1,44 @@
+WARNING:root:Outstanding DeepSpeed issue means that pp>0, zero1, and bf16 will break without fp32 grads
+Using /u/zsarwar/.cache/torch_extensions/py312_cu124 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /u/zsarwar/.cache/torch_extensions/py312_cu124/fused_adam/build.ninja...
+/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/torch/utils/cpp_extension.py:1964: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module fused_adam...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+Loading extension module fused_adam...
+/u/zsarwar/gpt-neox/gpt-neox/megatron/data/gpt2_dataset.py:222: UserWarning: The torch.cuda.*DtypeTensor constructors are no longer recommended. It's best to use methods such as torch.tensor(data, dtype=*, device='cuda') to create tensors. (Triggered internally at /opt/conda/conda-bld/pytorch_1729647378361/work/torch/csrc/tensor/python_tensor.cpp:78.)
+  counts = torch.cuda.LongTensor([1])
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../train.py", line 34, in <module>
+[rank0]:     main()
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../train.py", line 30, in main
+[rank0]:     pretrain(neox_args=neox_args)
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/megatron/training.py", line 229, in pretrain
+[rank0]:     iteration = train(
+[rank0]:                 ^^^^^^
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/megatron/training.py", line 925, in train
+[rank0]:     loss_dict, skipped_iter = train_step(
+[rank0]:                               ^^^^^^^^^^^
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/megatron/training.py", line 801, in train_step
+[rank0]:     backward_step(
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/megatron/training.py", line 751, in backward_step
+[rank0]:     model.backward(loss)
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/utils/nvtx.py", line 18, in wrapped_fn
+[rank0]:     ret_val = func(*args, **kwargs)
+[rank0]:               ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/runtime/engine.py", line 2020, in backward
+[rank0]:     self.optimizer.backward(loss, retain_graph=retain_graph)
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/runtime/zero/stage_1_and_2.py", line 2064, in backward
+[rank0]:     self.loss_scaler.backward(loss.float(), retain_graph=retain_graph)
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/runtime/fp16/loss_scaler.py", line 63, in backward
+[rank0]:     scaled_loss.backward(retain_graph=retain_graph)
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/torch/_tensor.py", line 581, in backward
+[rank0]:     torch.autograd.backward(
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/torch/autograd/__init__.py", line 347, in backward
+[rank0]:     _engine_run_backward(
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/torch/autograd/graph.py", line 825, in _engine_run_backward
+[rank0]:     return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 9.30 GiB. GPU 0 has a total capacity of 44.34 GiB of which 8.99 GiB is free. Including non-PyTorch memory, this process has 35.35 GiB memory in use. Of the allocated memory 25.04 GiB is allocated by PyTorch, and 9.17 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

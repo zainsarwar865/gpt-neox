@@ -1,0 +1,79 @@
+Traceback (most recent call last):
+  File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../deepy.py", line 41, in <module>
+    main()
+  File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../deepy.py", line 28, in main
+    neox_args = NeoXArgs.consume_deepy_args(input_args)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/u/zsarwar/gpt-neox/gpt-neox/megatron/neox_arguments/arguments.py", line 386, in consume_deepy_args
+    neox_args = cls.from_ymls(
+                ^^^^^^^^^^^^^^
+  File "/u/zsarwar/gpt-neox/gpt-neox/megatron/neox_arguments/arguments.py", line 244, in from_ymls
+    return cls(**config)
+           ^^^^^^^^^^^^^
+  File "<string>", line 264, in __init__
+  File "/u/zsarwar/gpt-neox/gpt-neox/megatron/neox_arguments/arguments.py", line 149, in __post_init__
+    self.calculate_derived()
+  File "/u/zsarwar/gpt-neox/gpt-neox/megatron/neox_arguments/arguments.py", line 880, in calculate_derived
+    global_num_gpus = torch.cuda.device_count() * int(os.environ['WORLD_SIZE'])
+                                                      ~~~~~~~~~~^^^^^^^^^^^^^^
+  File "<frozen os>", line 714, in __getitem__
+KeyError: 'WORLD_SIZE'
+WARNING:root:Outstanding DeepSpeed issue means that pp>0, zero1, and bf16 will break without fp32 grads
+Using /u/zsarwar/.cache/torch_extensions/py312_cu124 as PyTorch extensions root...
+Detected CUDA files, patching ldflags
+Emitting ninja build file /u/zsarwar/.cache/torch_extensions/py312_cu124/fused_adam/build.ninja...
+/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/torch/utils/cpp_extension.py:1964: UserWarning: TORCH_CUDA_ARCH_LIST is not set, all archs for visible cards are included for compilation. 
+If this is not desired, please set os.environ['TORCH_CUDA_ARCH_LIST'].
+  warnings.warn(
+Building extension module fused_adam...
+Allowing ninja to set a default number of workers... (overridable by setting the environment variable MAX_JOBS=N)
+Loading extension module fused_adam...
+/u/zsarwar/gpt-neox/gpt-neox/megatron/data/gpt2_dataset.py:222: UserWarning: The torch.cuda.*DtypeTensor constructors are no longer recommended. It's best to use methods such as torch.tensor(data, dtype=*, device='cuda') to create tensors. (Triggered internally at /opt/conda/conda-bld/pytorch_1729647378361/work/torch/csrc/tensor/python_tensor.cpp:78.)
+  counts = torch.cuda.LongTensor([1])
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../train.py", line 34, in <module>
+[rank0]:     main()
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../train.py", line 30, in main
+[rank0]:     pretrain(neox_args=neox_args)
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/megatron/training.py", line 229, in pretrain
+[rank0]:     iteration = train(
+[rank0]:                 ^^^^^^
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/megatron/training.py", line 925, in train
+[rank0]:     loss_dict, skipped_iter = train_step(
+[rank0]:                               ^^^^^^^^^^^
+[rank0]:   File "/u/zsarwar/gpt-neox/gpt-neox/megatron/training.py", line 824, in train_step
+[rank0]:     model.step()
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/runtime/engine.py", line 2213, in step
+[rank0]:     self._take_model_step(lr_kwargs)
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/runtime/engine.py", line 2119, in _take_model_step
+[rank0]:     self.optimizer.step()
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/runtime/zero/stage_1_and_2.py", line 1854, in step
+[rank0]:     scaled_global_grad_norm = self.scaled_global_norm()
+[rank0]:                               ^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/runtime/zero/stage_1_and_2.py", line 1795, in scaled_global_norm
+[rank0]:     norm_groups.append(self.get_grad_norm_direct(self.averaged_gradients[i], self.params_in_partition[i]))
+[rank0]:                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/runtime/zero/stage_1_and_2.py", line 1697, in get_grad_norm_direct
+[rank0]:     torch.norm(g.data.double().detach(), norm_type).to(get_accelerator().current_device_name()))
+[rank0]:                                                        ^^^^^^^^^^^^^^^^^
+[rank0]:   File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/accelerator/real_accelerator.py", line 51, in get_accelerator
+[rank0]:     def get_accelerator():
+[rank0]:     
+[rank0]: KeyboardInterrupt
+Traceback (most recent call last):
+  File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../deepy.py", line 41, in <module>
+    main()
+  File "/u/zsarwar/gpt-neox/gpt-neox/c1_configs/bash_scripts/../../deepy.py", line 37, in main
+    deepspeed.launcher.runner.main(deepspeed_main_args)
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/site-packages/deepspeed/launcher/runner.py", line 601, in main
+    result.wait()
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/subprocess.py", line 1264, in wait
+    return self._wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/subprocess.py", line 2053, in _wait
+    (pid, sts) = self._try_wait(0)
+                 ^^^^^^^^^^^^^^^^^
+  File "/u/zsarwar/c_envs/c_neox/lib/python3.12/subprocess.py", line 2011, in _try_wait
+    (pid, sts) = os.waitpid(self.pid, wait_flags)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

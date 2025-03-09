@@ -1,23 +1,23 @@
 {
 
   "moe_router_type": "topk",
-  "moe_num_experts": 8,
+  "moe_num_experts": 2,
   "moe_top_k": 1,
   "moe_expert_interval": 1,
-  "intermediate_size": 3072,
+  "intermediate_size": 128,
   "mlp_type" : 'regular', 
 
   "pipe_parallel_size": 0, 
   "model_parallel_size": 1,
 
   "gradient_accumulation_steps": 1,
-  "train_micro_batch_size_per_gpu": 16,
+  "train_micro_batch_size_per_gpu": 4,
   "data_impl": "mmap",
 
-  "num_layers": 12,
-  "hidden_size": 768,
-  "num_attention_heads": 12,
-  "seq_length": 2048,
+  "num_layers": 1,
+  "hidden_size": 64,
+  "num_attention_heads": 1,
+  "seq_length": 64,
   "max_position_embeddings": 2048,
   "norm": "layernorm",
   "pos_emb": "rotary",
@@ -25,11 +25,11 @@
   "gpt_j_residual": false,
   "output_layer_parallelism": "column",
 
-  "attention_config": [[["flash"], 12]],
+  "attention_config": [[["flash"], 1]],
 
-  "scaled_upper_triang_masked_softmax_fusion": true,
+  "scaled_upper_triang_masked_softmax_fusion": false,
   "bias_gelu_fusion": false, # not compatible with the new MoE impl
-  "rope_fusion": true,
+  "rope_fusion": false,
 
   "init_method": "small_init",
   "output_layer_init_method": "wang_init",
@@ -45,8 +45,8 @@
    "min_lr": 3.0e-5,
 
 
-  "train_iters": 100000,
-  "lr_decay_iters": 100000,
+  "train_iters": 100,
+  "lr_decay_iters": 100,
 
   "lr_decay_style": "infinite_cosine",
   "constant_lr": 1.65e-4, 
@@ -105,36 +105,36 @@
   "no_ssh_check": true,
 
   "train-data-paths": [
-    "//data/public_tokenized/arxive/arxive.all_tokenized_text_document",
+    "/u/zsarwar/data/datasets/enwik8/enwik8_text_document",
   ],
   "train-data-weights":[
-      0.134 # , 0.134, 0.134, 0.134, 0.134, 0.15, 0.045, 0.045, 0.045, 0.025, 0.02
+      1.0 # , 0.134, 0.134, 0.134, 0.134, 0.15, 0.045, 0.045, 0.045, 0.025, 0.02
   ],
   "test-data-paths": [
-    "//data/public_tokenized/arxive/arxive.all_tokenized_text_document",
+    "/u/zsarwar/data/datasets/enwik8/enwik8_text_document",
   ],
   "test-data-weights":[
-      0.134 # , 0.134, 0.134, 0.134, 0.134, 0.15, 0.045, 0.045, 0.045, 0.025, 0.02
+      1.0 # , 0.134, 0.134, 0.134, 0.134, 0.15, 0.045, 0.045, 0.045, 0.025, 0.02
   ],
   "valid-data-paths": [
-    "//data/public_tokenized/arxive/arxive.all_tokenized_text_document",
+    "/u/zsarwar/data/datasets/enwik8/enwik8_text_document",
   ],
   "valid-data-weights":[
-      0.134 # , 0.134, 0.134, 0.134, 0.134, 0.15, 0.045, 0.045, 0.045, 0.025, 0.02
+      1.0 # , 0.134, 0.134, 0.134, 0.134, 0.15, 0.045, 0.045, 0.045, 0.025, 0.02
   ],
 
-  "vocab_file": "/llm-experiments-no-cache//Llama-2-13b-chat-hf/tokenizer.json",
+  "vocab_file": "/u/zsarwar/data/tokenizers/llama3_tokenizer.json",
   "tokenizer_type": "HFTokenizer",
   "save": "checkpoints",
   "load": 'none',
   "checkpoint_validation_with_forward_pass": False,
 
-  "base_dir": "//supriyo/gpt-neox/exps/gpt-neox/",
+  "base_dir": "/u/zsarwar/gpt-neox/gpt-neox/exps/",
   "tensorboard_dir": "tensorboard",
   "log_dir": "logs",
   "use_wandb": False,
   "wandb_host": "https://api.wandb.ai",
   "wandb_project": "neox",
   "num_workers": 2,
-  "launcher": "torchrun",
+  # "launcher": "torchrun",
 }

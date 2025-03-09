@@ -38,7 +38,7 @@ def get_args():
     parser.add_argument(
         "-t",
         "--tokenizer",
-        default="GPT2BPETokenizer",
+        default="HFTokenizer",
         choices=TOKENIZER_CHOICES,
         help=f'Type of tokenizer to use - choose from {", ".join(TOKENIZER_CHOICES)}',
     )

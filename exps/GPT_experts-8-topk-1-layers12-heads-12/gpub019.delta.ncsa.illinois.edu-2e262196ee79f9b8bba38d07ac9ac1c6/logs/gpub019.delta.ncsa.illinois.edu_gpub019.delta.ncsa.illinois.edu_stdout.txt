@@ -1,0 +1,380 @@
+global_num_gpus 1
+-------------------- arguments --------------------
+  attention_config ................ ['flash', 'flash', 'flash', 'flash', 'flash', 'flash', 'flash', 'flash', 'flash', 'flash', 'flash', 'flash']updated
+  base_dir ........................ /u/zsarwar/gpt-neox/gpt-neox/exps/updated
+  batch_size ...................... 1...........................updated
+  bf16 ............................ {'enabled': True}...........updated
+  checkpoint_activations .......... True........................updated
+  checkpoint_factor ............... 1000........................updated
+  config_files .................... {'debug_fineweb_edu.yml': '{\n\n  "moe_router_type": "topk",\n  "moe_num_experts": 8,\n  "moe_top_k": 1,\n  "moe_expert_interval": 1,\n  "intermediate_size": 3072,\n  "mlp_type" : \'regular\', \n\n  "pipe_parallel_size": 0, \n  "model_parallel_size": 1,\n\n  "gradient_accumulation_steps": 1,\n  "train_micro_batch_size_per_gpu": 1,\n  "data_impl": "mmap",\n\n  "num_layers": 12,\n  "hidden_size": 768,\n  "num_attention_heads": 12,\n  "seq_length": 2048,\n  "max_position_embeddings": 2048,\n  "norm": "layernorm",\n  "pos_emb": "rotary",\n  "no_weight_tying": true,\n  "gpt_j_residual": false,\n  "output_layer_parallelism": "column",\n\n  "attention_config": [[["flash"], 12]],\n\n  "scaled_upper_triang_masked_softmax_fusion": false,\n  "bias_gelu_fusion": false,\n  "rope_fusion": false,\n\n  "init_method": "small_init",\n  "output_layer_init_method": "wang_init",\n\n  "optimizer": {\n     "type": "Adam",\n     "params": {\n       "lr": 3.0e-4,\n       "betas": [0.9, 0.95],\n       "eps": 1.0e-8,\n     }\n   },\n   "min_lr": 3.0e-5,\n\n\n  "lr_decay_style": "infinite_cosine",\n  "constant_lr": 1.65e-4, \n  "constant_iters_perc": 0.10,\n  "cooldown_iters_perc": 0.7,\n  "timescale": 1.0,\n  "warmup": 0.001,\n  \n  \n  "zero_optimization": {\n    "stage": 1,\n    "allgather_partitions": True,\n    "allgather_bucket_size": 500000000,\n    "overlap_comm": True,\n    "reduce_scatter": True,\n    "reduce_bucket_size": 500000000,\n    "contiguous_gradients": True,\n  },\n\n   # activation checkpointing\n   "checkpoint_activations": true,\n   "checkpoint_num_layers": 1,\n   "partition_activations": true,\n   "synchronize_each_layer": true,\n\n   # regularization\n   "gradient_clipping": 1.0,\n   "weight_decay": 0.1,\n   "hidden_dropout": 0.0,\n   "attention_dropout": 0.0,\n\n    "precision": "bfloat16",\n    "fp32_allreduce": true,\n    "bf16": {\n      "enabled": true\n    },\n    "data_types": {\n      "grad_accum_dtype": "bf16"\n    },\n\n\n   # misc. training settings\n   "train_iters": 11000,\n   "lr_decay_iters": 11000,\n   "distributed_backend": "nccl",\n   "checkpoint_factor": 1000,\n   "eval_interval": 1000,\n   "eval_iters": 10,\n\n   # logging\n   "log_interval": 10,\n   "steps_per_print": 10,\n   "keep_last_n_checkpoints": 4,\n   "wall_clock_breakdown": true,\n\n  "no_ssh_check": true,\n\n  "train-data-paths": [\n    "/scratch/bdgs/zsarwar/datasets/tokenized_train/tokenized_train_12b_text_document",\n  ],\n  "train-data-weights":[\n      1.0 \n  ],\n  "test-data-paths": [\n    "/scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document",\n  ],\n  "test-data-weights":[\n      1.0 \n  ],\n  "valid-data-paths": [\n    "/scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document",\n  ],\n  "valid-data-weights":[\n      1.0 \n  ],\n\n  "vocab_file": "/u/zsarwar/data/tokenizers/llama3_tokenizer.json",\n  "tokenizer_type": "HFTokenizer",\n  "save": "checkpoints",\n  "load": \'none\',\n  "checkpoint_validation_with_forward_pass": False,\n\n  "base_dir": "/u/zsarwar/gpt-neox/gpt-neox/exps/",\n  "tensorboard_dir": "tensorboard",\n  "log_dir": "logs",\n  "use_wandb": False,\n  "wandb_host": "https://api.wandb.ai",\n  "wandb_project": "neox",\n  "num_workers": 2,\n\n}\n'}updated
+  constant_iters_perc ............. 0.1.........................updated
+  constant_lr ..................... 0.000165....................updated
+  cooldown_iters_perc ............. 0.7.........................updated
+  data_impl ....................... mmap........................updated
+  data_types ...................... {'grad_accum_dtype': 'bf16'}updated
+  deepspeed_extra_args ............ {'bf16': {'enabled': True}}.updated
+  dynamic_loss_scale .............. True........................updated
+  eval_iters ...................... 10..........................updated
+  expr_name ....................... GPT_experts-8-topk-1-layers12-heads-12updated
+  fp32_allreduce .................. True........................updated
+  global_num_gpus ................. 1...........................updated
+  hidden_size ..................... 768.........................updated
+  init_method ..................... small_init..................updated
+  intermediate_size ............... 3072........................updated
+  keep_last_n_checkpoints ......... 4...........................updated
+  load ............................ none........................updated
+  log_dir ......................... /u/zsarwar/gpt-neox/gpt-neox/exps/GPT_experts-8-topk-1-layers12-heads-12/gpub019.delta.ncsa.illinois.edu-2e262196ee79f9b8bba38d07ac9ac1c6/logsupdated
+  log_interval .................... 10..........................updated
+  lr .............................. 0.0003......................updated
+  lr_decay_iters .................. 11000.......................updated
+  lr_decay_style .................. infinite_cosine.............updated
+  max_position_embeddings ......... 2048........................updated
+  min_lr .......................... 3e-05.......................updated
+  moe_num_experts ................. 8...........................updated
+  moe_router_type ................. topk........................updated
+  no_ssh_check .................... True........................updated
+  no_weight_tying ................. True........................updated
+  num_attention_heads ............. 12..........................updated
+  num_layers ...................... 12..........................updated
+  optimizer ....................... {'type': 'Adam', 'params': {'lr': 0.0003, 'betas': [0.9, 0.95], 'eps': 1e-08}}updated
+  optimizer_type .................. Adam........................updated
+  output_layer_init_method ........ wang_init...................updated
+  partition_activations ........... True........................updated
+  pos_emb ......................... rotary......................updated
+  precision ....................... bfloat16....................updated
+  save ............................ /u/zsarwar/gpt-neox/gpt-neox/exps/GPT_experts-8-topk-1-layers12-heads-12/-master-0-2e262196ee79f9b8bba38d07ac9ac1c6/checkpointsupdated
+  save_iters ...................... [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000]updated
+  seq_length ...................... 2048........................updated
+  sparsity_config ................. {}..........................updated
+  synchronize_each_layer .......... True........................updated
+  tensorboard_dir ................. /u/zsarwar/gpt-neox/gpt-neox/exps/GPT_experts-8-topk-1-layers12-heads-12/gpub019.delta.ncsa.illinois.edu-2e262196ee79f9b8bba38d07ac9ac1c6/tensorboardupdated
+  test_data_paths ................. ['/scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document']updated
+  test_data_weights ............... [1.0].......................updated
+  text_gen_type ................... unconditional...............updated
+  tokenizer_type .................. HFTokenizer.................updated
+  train_batch_size ................ 1...........................updated
+  train_data_paths ................ ['/scratch/bdgs/zsarwar/datasets/tokenized_train/tokenized_train_12b_text_document']updated
+  train_data_weights .............. [1.0].......................updated
+  train_iters ..................... 11000.......................updated
+  train_micro_batch_size_per_gpu .. 1...........................updated
+  use_wandb ....................... False.......................updated
+  user_script ..................... ../../train.py..............updated
+  valid_data_paths ................ ['/scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document']updated
+  valid_data_weights .............. [1.0].......................updated
+  vocab_file ...................... /u/zsarwar/data/tokenizers/llama3_tokenizer.jsonupdated
+  wall_clock_breakdown ............ True........................updated
+  warmup .......................... 0.001.......................updated
+  zero_allgather_bucket_size ...... 500000000...................updated
+  zero_contiguous_gradients ....... True........................updated
+  zero_optimization ............... {'stage': 1, 'allgather_partitions': True, 'allgather_bucket_size': 500000000, 'overlap_comm': True, 'reduce_scatter': True, 'reduce_bucket_size': 500000000, 'contiguous_gradients': True}updated
+  zero_reduce_bucket_size ......... 500000000...................updated
+  zero_reduce_scatter ............. True........................updated
+  zero_stage ...................... 1...........................updated
+  account ......................... None........................default
+  activation ...................... gelu........................default
+  activation_checkpointing ........ None........................default
+  adlr_autoresume ................. False.......................default
+  adlr_autoresume_interval ........ 1000........................default
+  amp ............................. None........................default
+  apply_query_key_layer_scaling ... False.......................default
+  attention_dropout ............... 0.0.........................default
+  attention_softmax_in_fp32 ....... False.......................default
+  autotuning ...................... None........................default
+  autotuning_run .................. None........................default
+  base_shapes_file ................ None........................default
+  bias_dropout_fusion ............. False.......................default
+  bias_gelu_fusion ................ False.......................default
+  char_level_ppl .................. False.......................default
+  checkpoint ...................... None........................default
+  checkpoint_in_cpu ............... False.......................default
+  checkpoint_num_layers ........... 1...........................default
+  checkpoint_scale ................ linear......................default
+  checkpoint_validation_with_forward_pass  False................default
+  clip_grad ....................... 1.0.........................default
+  comment ......................... None........................default
+  comms_logger .................... None........................default
+  communication_data_type ......... None........................default
+  compression_training ............ None........................default
+  contiguous_checkpointing ........ False.......................default
+  coord_check ..................... False.......................default
+  csv_monitor ..................... None........................default
+  curriculum_learning ............. None........................default
+  curriculum_seqlen ............... 0...........................default
+  data_efficiency ................. None........................default
+  data_path ....................... None........................default
+  deepscale ....................... False.......................default
+  deepscale_config ................ None........................default
+  deepspeed ....................... True........................default
+  deepspeed_activation_checkpointing  True......................default
+  deepspeed_mpi ................... False.......................default
+  deepspeed_slurm ................. False.......................default
+  detect_nvlink_pairs ............. False.......................default
+  distributed_backend ............. nccl........................default
+  do_test ......................... None........................default
+  do_train ........................ None........................default
+  do_valid ........................ None........................default
+  dump_state ...................... False.......................default
+  elasticity ...................... None........................default
+  eod_mask_loss ................... False.......................default
+  eval_interval ................... 1000........................default
+  eval_results_prefix ............. ............................default
+  eval_tasks ...................... None........................default
+  exclude ......................... None........................default
+  exit_interval ................... None........................default
+  extra_save_iters ................ None........................default
+  finetune ........................ False.......................default
+  flops_profiler .................. None........................default
+  force_multi ..................... False.......................default
+  fp16 ............................ None........................default
+  fp16_lm_cross_entropy ........... False.......................default
+  git_hash ........................ b0c5b2a.....................default
+  gmlp_attn_dim ................... 64..........................default
+  gpt_j_residual .................. False.......................default
+  gpt_j_tied ...................... False.......................default
+  gradient_accumulation_steps ..... 1...........................default
+  gradient_clipping ............... 1.0.........................default
+  gradient_noise_scale_cpu_offload  False.......................default
+  gradient_noise_scale_n_batches .. 5...........................default
+  gradient_predivide_factor ....... 1.0.........................default
+  hidden_dropout .................. 0.0.........................default
+  hostfile ........................ None........................default
+  hysteresis ...................... 2...........................default
+  include ......................... None........................default
+  init_method_std ................. 0.02........................default
+  is_pipe_parallel ................ False.......................default
+  iteration ....................... None........................default
+  label_data_paths ................ None........................default
+  launcher ........................ pdsh........................default
+  layernorm_epsilon ............... 1e-05.......................default
+  layernorm_fusion ................ False.......................default
+  lazy_mpu_init ................... False.......................default
+  local_rank ...................... None........................default
+  log_grad_norm ................... False.......................default
+  log_grad_pct_zeros .............. False.......................default
+  log_gradient_noise_scale ........ False.......................default
+  log_optimizer_states ............ False.......................default
+  log_param_norm .................. False.......................default
+  loss_scale ...................... None........................default
+  loss_scale_window ............... 1000.0......................default
+  make_vocab_size_divisible_by .... 128.........................default
+  mamba_causal_conv_fusion ........ False.......................default
+  mamba_inner_func_fusion ......... False.......................default
+  mamba_selective_fp32_params ..... True........................default
+  mamba_selective_scan_fusion ..... False.......................default
+  mamba_use_bias_in_conv .......... True........................default
+  mamba_use_bias_in_linears ....... False.......................default
+  master_addr ..................... None........................default
+  master_port ..................... 29500.......................default
+  maximum_tokens .................. 64..........................default
+  memory_profiling ................ False.......................default
+  memory_profiling_path ........... None........................default
+  merge_file ...................... None........................default
+  min_scale ....................... 1.0.........................default
+  mlp_type ........................ regular.....................default
+  mmap_warmup ..................... False.......................default
+  model_parallel_size ............. 1...........................default
+  moe_aux_loss_coeff .............. 0...........................default
+  moe_expert_interval ............. 1...........................default
+  moe_jitter_eps .................. None........................default
+  moe_lbl_in_fp32 ................. False.......................default
+  moe_top_k ....................... 1...........................default
+  moe_z_loss_coeff ................ 0.0.........................default
+  mup_attn_temp ................... 1.0.........................default
+  mup_embedding_mult .............. 1.0.........................default
+  mup_init_scale .................. 1.0.........................default
+  mup_output_temp ................. 1.0.........................default
+  mup_rp_embedding_mult ........... 1.0.........................default
+  mup_width_scale ................. 2...........................default
+  no_load_optim ................... False.......................default
+  no_load_rng ..................... False.......................default
+  no_save_optim ................... False.......................default
+  no_save_rng ..................... False.......................default
+  norm ............................ layernorm...................default
+  num_gpus ........................ None........................default
+  num_kv_heads .................... None........................default
+  num_nodes ....................... -1..........................default
+  num_samples ..................... 1...........................default
+  num_unique_layers ............... None........................default
+  num_workers ..................... 2...........................default
+  onnx_safe ....................... False.......................default
+  opt_pos_emb_offset .............. 0...........................default
+  output_layer_parallelism ........ column......................default
+  override_lr_scheduler ........... False.......................default
+  padded_vocab_size ............... None........................default
+  param_sharing_style ............. grouped.....................default
+  pipe_parallel_size .............. 0...........................default
+  pipe_partition_method ........... type:transformer|mlp........default
+  prescale_gradients .............. False.......................default
+  profile ......................... False.......................default
+  profile_backward ................ False.......................default
+  profile_step_start .............. 10..........................default
+  profile_step_stop ............... 12..........................default
+  prompt_end ...................... 
+...........................default
+  rank ............................ None........................default
+  recompute ....................... False.......................default
+  return_logits ................... False.......................default
+  rms_norm_epsilon ................ 1e-08.......................default
+  rope_fusion ..................... False.......................default
+  rotary_emb_base ................. 10000.......................default
+  rotary_pct ...................... 1.0.........................default
+  rotary_save_freqs_buffer ........ False.......................default
+  rpe_max_distance ................ 128.........................default
+  rpe_num_buckets ................. 32..........................default
+  s3_chunk_size ................... 104857600...................default
+  s3_path ......................... None........................default
+  sample_input_file ............... None........................default
+  sample_output_file .............. samples.txt.................default
+  save_base_shapes ................ False.......................default
+  scaled_masked_softmax_fusion .... False.......................default
+  scaled_upper_triang_masked_softmax_fusion  False..............default
+  scalenorm_epsilon ............... 1e-08.......................default
+  scheduler ....................... None........................default
+  seed ............................ 1234........................default
+  short_seq_prob .................. 0.1.........................default
+  sliding_window_width ............ None........................default
+  soft_prompt_tuning .............. None........................default
+  sparse_attention ................ None........................default
+  sparse_gradients ................ False.......................default
+  split ........................... 98,2, 0.....................default
+  steps_per_print ................. 10..........................default
+  temperature ..................... 0.0.........................default
+  tensorboard ..................... None........................default
+  timescale ....................... 1.0.........................default
+  top_k ........................... 0...........................default
+  top_p ........................... 0.0.........................default
+  train_dataset_name .............. None........................default
+  use_bias_in_attn_linear ......... True........................default
+  use_bias_in_norms ............... True........................default
+  use_bnb_optimizer ............... False.......................default
+  use_checkpoint_lr_scheduler ..... False.......................default
+  use_cpu_initialization .......... False.......................default
+  use_mup ......................... False.......................default
+  use_qk_layernorm ................ False.......................default
+  use_shared_fs ................... True........................default
+  wandb ........................... None........................default
+  wandb_group ..................... None........................default
+  wandb_host ...................... https://api.wandb.ai........default
+  wandb_init_all_ranks ............ False.......................default
+  wandb_project ................... neox........................default
+  wandb_team ...................... None........................default
+  weight_by_num_documents ......... False.......................default
+  weight_decay .................... 0.1.........................default
+  weighted_sampler_alpha .......... 1.0.........................default
+  world_size ...................... None........................default
+---------------- end of arguments ----------------
+NeoXArgs.configure_distributed_args() using world size: 1 and model-parallel size: 1 
+NeoXArgs.configure_distributed_args() using world size: 1 and model-parallel size: 1 
+> building HFTokenizer tokenizer ...
+ > padded vocab (size: 128256) with 0 dummy tokens (new size: 128256)
+> setting tensorboard ...
+seeeeeee /u/zsarwar/gpt-neox/gpt-neox/exps/GPT_experts-8-topk-1-layers12-heads-12/gpub019.delta.ncsa.illinois.edu-2e262196ee79f9b8bba38d07ac9ac1c6/tensorboard
+> initializing torch distributed ...
+> initializing model parallel with size 1
+MPU DP: [0]
+MPU PP: [0]
+MPU MP: [0]
+> setting random seeds to 1234 ...
+building GPT2 model ...
+SEED_LAYERS=False BASE_SEED=1234 SEED_FN=None
+Using topology: {ProcessCoord(pipe=0, data=0, model=0): 0}
+stage=0 layers=17
+     0: EmbeddingPipe
+     1: _pre_transformer_block
+     2: ParallelTransformerLayerPipe
+     3: ParallelTransformerLayerPipe
+     4: ParallelTransformerLayerPipe
+     5: ParallelTransformerLayerPipe
+     6: ParallelTransformerLayerPipe
+     7: ParallelTransformerLayerPipe
+     8: ParallelTransformerLayerPipe
+     9: ParallelTransformerLayerPipe
+    10: ParallelTransformerLayerPipe
+    11: ParallelTransformerLayerPipe
+    12: ParallelTransformerLayerPipe
+    13: ParallelTransformerLayerPipe
+    14: _post_transformer_block
+    15: NormPipe
+    16: ParallelLinearPipe
+  loss: partial
+Configuring Optimizer type: Adam with params: {'lr': 0.0003, 'betas': [0.9, 0.95], 'eps': 1e-08}
+WARNING: APEX not installed - defaulting to deepspeed's fused adam
+Time to load fused_adam op: 0.9141485691070557 seconds
+> learning rate decay style: infinite_cosine
+DeepSpeed is enabled.
+ > number of parameters on model parallel rank 0: 678446592
+ > total params: 678,446,592
+Unable to load checkpoint.
+Loading checkpoint and starting from iteration 0
+> building train, validation, and test datasets ...
+    reading sizes...
+    reading pointers...
+    reading document index...
+    creating numpy buffer of mmap...
+    creating memory view of numpy buffer...
+    train_0:
+     no. of documents:5734126
+ > loading doc-idx mapping from /scratch/bdgs/zsarwar/datasets/tokenized_train/tokenized_train_12b_text_document_train_0_indexmap_11055ns_2048sl_1234s_doc_idx.npy
+ > loading sample-idx mapping from /scratch/bdgs/zsarwar/datasets/tokenized_train/tokenized_train_12b_text_document_train_0_indexmap_11055ns_2048sl_1234s_sample_idx.npy
+ > loading shuffle-idx mapping from /scratch/bdgs/zsarwar/datasets/tokenized_train/tokenized_train_12b_text_document_train_0_indexmap_11055ns_2048sl_1234s_shuffle_idx.npy
+    loaded indexed file in 0.019 seconds
+    total number of samples: 7312151
+    total number of epochs: 1
+    reading sizes...
+    reading pointers...
+    reading document index...
+    creating numpy buffer of mmap...
+    creating memory view of numpy buffer...
+    valid_0:
+     no. of documents:955605
+ > loading doc-idx mapping from /scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document_valid_0_indexmap_121ns_2048sl_1234s_doc_idx.npy
+ > loading sample-idx mapping from /scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document_valid_0_indexmap_121ns_2048sl_1234s_sample_idx.npy
+ > loading shuffle-idx mapping from /scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document_valid_0_indexmap_121ns_2048sl_1234s_shuffle_idx.npy
+    loaded indexed file in 0.004 seconds
+    total number of samples: 1218535
+    total number of epochs: 1
+    reading sizes...
+    reading pointers...
+    reading document index...
+    creating numpy buffer of mmap...
+    creating memory view of numpy buffer...
+    test_0:
+     no. of documents:955605
+ > loading doc-idx mapping from /scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document_test_0_indexmap_11ns_2048sl_1234s_doc_idx.npy
+ > loading sample-idx mapping from /scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document_test_0_indexmap_11ns_2048sl_1234s_sample_idx.npy
+ > loading shuffle-idx mapping from /scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document_test_0_indexmap_11ns_2048sl_1234s_shuffle_idx.npy
+    loaded indexed file in 0.004 seconds
+    total number of samples: 1218535
+    total number of epochs: 1
+> RANK 0 elapsed time for building blendable dataset indices: 0.02 (sec)
+> RANK 0 elapsed time for building blendable dataset indices: 0.00 (sec)
+> RANK 0 elapsed time for building blendable dataset indices: 0.00 (sec)
+setting training data start iteration to 0
+setting validation data start iteration to 0
+done with setups ...
+time (ms) | model and optimizer: 2091.61 | train/valid/test data iterators: 1051.16
+training ...
+ samples/sec: 2.090 | iteration       10/   11000 | elapsed time per iteration (ms): 478.5 | learning rate: 2.727E-04 | approx flops per GPU: 6.7TFLOPS | lm_loss: 1.103736E+01 | number of skipped iterations:   0 | number of nan iterations:   0 |
+after 10 iterations memory (MB) | allocated: 9075.26220703125 | max allocated: 14251.189453125 | reserved: 16488.0 | max reserved: 16488.0
+time (ms) | forward: 227.76 | backward: 155.65 | backward-backward: 155.63 | backward-allreduce: 0.00 | optimizer: 94.54 | batch generator: 2.32
+ samples/sec: 4.726 | iteration       20/   11000 | elapsed time per iteration (ms): 211.6 | learning rate: 3.000E-04 | approx flops per GPU: 15.2TFLOPS | lm_loss: 9.351852E+00 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms) | forward: 45.21 | backward: 74.33 | backward-backward: 74.31 | backward-allreduce: 0.00 | optimizer: 91.45 | batch generator: 0.64
+ samples/sec: 4.728 | iteration       30/   11000 | elapsed time per iteration (ms): 211.5 | learning rate: 3.000E-04 | approx flops per GPU: 15.2TFLOPS | lm_loss: 8.329913E+00 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms) | forward: 44.87 | backward: 74.42 | backward-backward: 74.40 | backward-allreduce: 0.00 | optimizer: 91.63 | batch generator: 0.64
+ samples/sec: 4.720 | iteration       40/   11000 | elapsed time per iteration (ms): 211.9 | learning rate: 3.000E-04 | approx flops per GPU: 15.2TFLOPS | lm_loss: 8.077087E+00 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms) | forward: 45.45 | backward: 74.36 | backward-backward: 74.34 | backward-allreduce: 0.00 | optimizer: 91.49 | batch generator: 0.64
+ samples/sec: 4.712 | iteration       50/   11000 | elapsed time per iteration (ms): 212.2 | learning rate: 3.000E-04 | approx flops per GPU: 15.2TFLOPS | lm_loss: 8.024718E+00 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms) | forward: 45.27 | backward: 74.89 | backward-backward: 74.87 | backward-allreduce: 0.00 | optimizer: 91.51 | batch generator: 0.65
+ samples/sec: 4.715 | iteration       60/   11000 | elapsed time per iteration (ms): 212.1 | learning rate: 3.000E-04 | approx flops per GPU: 15.2TFLOPS | lm_loss: 7.921998E+00 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms) | forward: 45.28 | backward: 74.76 | backward-backward: 74.74 | backward-allreduce: 0.00 | optimizer: 91.48 | batch generator: 0.64
+ samples/sec: 4.705 | iteration       70/   11000 | elapsed time per iteration (ms): 212.5 | learning rate: 3.000E-04 | approx flops per GPU: 15.2TFLOPS | lm_loss: 7.996387E+00 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms) | forward: 45.44 | backward: 75.06 | backward-backward: 75.04 | backward-allreduce: 0.00 | optimizer: 91.50 | batch generator: 0.74
+ samples/sec: 4.698 | iteration       80/   11000 | elapsed time per iteration (ms): 212.9 | learning rate: 3.000E-04 | approx flops per GPU: 15.1TFLOPS | lm_loss: 7.782309E+00 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms) | forward: 45.65 | backward: 75.12 | backward-backward: 75.10 | backward-allreduce: 0.00 | optimizer: 91.52 | batch generator: 0.63
+ samples/sec: 4.692 | iteration       90/   11000 | elapsed time per iteration (ms): 213.1 | learning rate: 3.000E-04 | approx flops per GPU: 15.1TFLOPS | lm_loss: 7.550288E+00 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms) | forward: 45.64 | backward: 75.45 | backward-backward: 75.43 | backward-allreduce: 0.00 | optimizer: 91.47 | batch generator: 0.76
+ samples/sec: 4.669 | iteration      100/   11000 | elapsed time per iteration (ms): 214.2 | learning rate: 3.000E-04 | approx flops per GPU: 15.0TFLOPS | lm_loss: 7.557012E+00 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms) | forward: 45.89 | backward: 76.09 | backward-backward: 76.07 | backward-allreduce: 0.00 | optimizer: 91.56 | batch generator: 0.69
+ samples/sec: 4.653 | iteration      110/   11000 | elapsed time per iteration (ms): 214.9 | learning rate: 2.999E-04 | approx flops per GPU: 15.0TFLOPS | lm_loss: 7.489563E+00 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms) | forward: 46.33 | backward: 76.31 | backward-backward: 76.29 | backward-allreduce: 0.00 | optimizer: 91.59 | batch generator: 0.73
+Detected VISIBLE_DEVICES=0: setting --include=localhost:0

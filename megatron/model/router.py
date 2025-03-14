@@ -383,7 +383,6 @@ class TopKTokenChoiceRouter(torch.nn.Module):
         # expert_weights probability mass won't add up to 1 because we took
         # the topk scores from the softmax
         # TODO: placeholder for moe_normalize_expert_weights if necessary
-
         return expert_weights, expert_indices
 
 

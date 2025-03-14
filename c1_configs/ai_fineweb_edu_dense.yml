@@ -1,17 +1,19 @@
 {
 
   "moe_router_type": "topk",
-  "moe_num_experts": 8,
+  "moe_num_experts": 1,
   "moe_top_k": 1,
   "moe_expert_interval": 1,
   "intermediate_size": 3072,
+  "moe_aux_loss_coeff": 0.01,
+  "moe_z_loss_coeff": 0.0,
   "mlp_type" : 'regular', 
 
   "pipe_parallel_size": 0, 
   "model_parallel_size": 1,
 
   "gradient_accumulation_steps": 1,
-  "train_micro_batch_size_per_gpu": 18,
+  "train_micro_batch_size_per_gpu": 40,   
   "data_impl": "mmap",
 
   "num_layers": 12,
@@ -102,31 +104,31 @@
   "no_ssh_check": true,
 
   "train-data-paths": [
-    "/scratch/bdgs/zsarwar/datasets/tokenized_train/tokenized_train_12b_text_document",
+    "/net/scratch/zsarwar/Datasets/Fineweb/tokenized/tokenized_train/tokenized_fineweb_edu_2B_text_document",
   ],
   "train-data-weights":[
       1.0 
   ],
   "test-data-paths": [
-    "/scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document",
+    "/net/scratch/zsarwar/Datasets/Fineweb/tokenized/tokenized_val/tokenized_fineweb_edu_500M_text_document",
   ],
   "test-data-weights":[
       1.0 
   ],
   "valid-data-paths": [
-    "/scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document",
+  "/net/scratch/zsarwar/Datasets/Fineweb/tokenized/tokenized_val/tokenized_fineweb_edu_500M_text_document",
   ],
   "valid-data-weights":[
       1.0 
   ],
 
-  "vocab_file": "/u/zsarwar/data/tokenizers/llama3_tokenizer.json",
+  "vocab_file": "/net/projects/mmairegroup/zsarwar/tokenizers/llama3_tokenizer.json",
   "tokenizer_type": "HFTokenizer",
   "save": "checkpoints",
   "load": 'none',
   "checkpoint_validation_with_forward_pass": False,
 
-  "base_dir": "/u/zsarwar/gpt-neox/gpt-neox/exps/",
+  "base_dir": "/net/scratch/zsarwar/exps",
   "tensorboard_dir": "tensorboard",
   "log_dir": "logs",
   "use_wandb": False,

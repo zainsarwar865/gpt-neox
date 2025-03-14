@@ -35,4 +35,7 @@ def txt_to_jsonl(input_file, output_file, words_per_chunk=10000):
     print(f"✅ Conversion completed! JSONL saved at: {output_file}")
 
 # Example usage
-txt_to_jsonl("/scratch/bdgs/zsarwar/datasets/raw/fineweb_edu_raw_2B_val.txt", "/scratch/bdgs/zsarwar/datasets/raw/fineweb_edu_prep`_2B_val.jsonl", words_per_chunk=2048)
+txt_to_jsonl("/net/scratch/zsarwar/Datasets/Fineweb/raw/fineweb_edu_raw_val_500M.txt", "/net/scratch/zsarwar/Datasets/Fineweb/raw/fineweb_edu_raw_val_500M.jsonl", words_per_chunk=2048)
+
+
+

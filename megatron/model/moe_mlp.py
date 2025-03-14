@@ -25,7 +25,8 @@ from megatron.mpu.utils import divide
 from megatron.neox_arguments.arguments import NeoXArgs
 
 from megablocks import grouped_gemm_util as gg
-
+from liger_kernel.ops.swiglu import LigerSiLUMulFunction
+from liger_kernel.ops.geglu import LigerGELUMulFunction
 
 class ScaleGradient(torch.autograd.Function):
     @staticmethod

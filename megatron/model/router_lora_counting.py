@@ -372,7 +372,7 @@ class TopKTokenChoiceRouter(torch.nn.Module):
         # expert_weights probability mass won't add up to 1 because we took
         # the topk scores from the softmax
         # TODO: placeholder for moe_normalize_expert_weights if necessary
-        #print("M : ", tokens_per_expert)
+
         return expert_weights, expert_indices
 
 
@@ -932,17 +932,93 @@ class TopKTokenChoiceRouterLoRa(torch.nn.Module):
         if self.training and self.jitter_eps is not None:
             x = x * self.jitter(x)
 
+        # # x.view shape: (sl * bs, hs)...every token as a row
+        # # scores (float) shape: (sl * bs, num_experts)...expert rankings for every token````
+        # scores = self.layer(x.view(-1, x.shape[-1])).softmax(dim=-1)
+        # #logits, z_loss = self.apply_z_loss(logits)
+        # #z_loss_temp = z_loss.detach()
 
-        # GMM on the router layer
-        w1 = self.scale_grad(self.w1)
 
-        w1 = w1.view(self.experts_per_rank, self.hidden_size, self.loras_per_rank)
-        # Logits for each router
-        scores = gg.ops.gmm(x, w1, grouped_gemm_batch_sizes).softmax(dim=-1) # [num_tokens, lora_distribution]
-        expert_weights, expert_indices = self._top_k(scores)
+        # # expert_weights (float) shape: (sl * bs, top_k)...value(s) from scores corresponding to the top_k experts
+        # # expert_indices (int) shape: (sl * bs, top_k)...index(indices) from scores corresponding to the top_k experts
+        # expert_weights, expert_indices = self._top_k(scores)
+
+        # with torch.no_grad():
+        #     expert_indices_ft = expert_indices.flatten()
+        #     tokens_per_expert = megablocks.ops.histogram(expert_indices_ft, self.num_experts)
+
+        # expert_weights = self.apply_load_balancing_loss(scores, tokens_per_expert, activation=expert_weights)
+        # # expert_weights probability mass won't add up to 1 because we took
+        # # the topk scores from the softmax
+        # # TODO: placeholder for moe_normalize_expert_weights if necessary
+
+
+        if self.expert_parallel_rank == 0:
+
+            # GMM on the router layer
+            w1 = self.scale_grad(self.w1)
+
+            w1 = w1.view(self.experts_per_rank, self.hidden_size, self.loras_per_rank)
+            # Logits for each router
+            scores = gg.ops.gmm(x, w1, grouped_gemm_batch_sizes).softmax(dim=-1) # [num_tokens, lora_distribution]
+            expert_weights, expert_indices = self._top_k(scores)
+
+            #offset_vector = self.generate_offsets(grouped_gemm_batch_sizes, self.loras_per_rank) + expert_indices.squeeze(1)
+            
+            #lora_routing_counts = torch.bincount(offset_vector, minlength=self.total_loras)
+            #print(f"lora_routing_counts : {lora_routing_counts}")
+
+            # broadcast the routing result to all ranks
+            expert_weights_broadcast = torch.distributed.broadcast(
+                expert_weights,
+                src=torch.distributed.get_global_rank(self.expert_parallel_group, 0),
+                group=self.expert_parallel_group,
+                async_op=True,
+            )
+            expert_indices_broadcast = torch.distributed.broadcast(
+                expert_indices,
+                src=torch.distributed.get_global_rank(self.expert_parallel_group, 0),
+                group=self.expert_parallel_group,
+                async_op=True,
+            )
+
+
+        else:
+            # sl * bs
+            num_rows = x.view(-1, x.shape[-1]).shape[0]
+            expert_weights = torch.empty(
+                num_rows,
+                self.top_k,
+                device=torch.cuda.current_device(),
+                dtype=self.params_dtype,
+            )
+            expert_indices = torch.empty(
+                num_rows,
+                self.top_k,
+                device=torch.cuda.current_device(),
+                dtype=torch.int64,
+            )
+
+            expert_weights_broadcast = torch.distributed.broadcast(
+                expert_weights,
+                src=torch.distributed.get_global_rank(self.expert_parallel_group, 0),
+                group=self.expert_parallel_group,
+                async_op=True,
+            )
+            expert_indices_broadcast = torch.distributed.broadcast(
+                expert_indices,
+                src=torch.distributed.get_global_rank(self.expert_parallel_group, 0),
+                group=self.expert_parallel_group,
+                async_op=True,
+            )
+
+        # aux loss for loop
 
         with torch.no_grad():
+            #offset_vector = self.generate_offsets(grouped_gemm_batch_sizes, self.loras_per_rank)
             expert_indices_ft = expert_indices.flatten() #+ offset_vector
+            #tokens_per_lora = megablocks.ops.histogram(expert_indices_ft, self.num_loras)
+
         start = 0
         for i in grouped_gemm_batch_sizes:
             if i > 0:
@@ -950,6 +1026,14 @@ class TopKTokenChoiceRouterLoRa(torch.nn.Module):
                     tokens_per_lora = megablocks.ops.histogram(expert_indices_ft[start:i + start], self.num_loras)
                 expert_weights[start:i + start, :] = self.apply_load_balancing_loss(scores[start:i + start, :], tokens_per_lora, activation=expert_weights[start:i + start, :])
             start = i
+
+        # since both are executing asynchronously, it doesn't matter which one
+        # we wait for first
+        expert_weights_broadcast.wait()
+        expert_indices_broadcast.wait()
+        #global_lora_routing_counts.wait()
+
+        #self.global_lora_routing_counts = lora_routing_counts
 
         return expert_weights, expert_indices
     

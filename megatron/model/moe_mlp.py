@@ -17,7 +17,6 @@
 
 import torch
 from megatron.model.activations import get_activation, swish
-
 from megatron.mpu.layers import _initialize_affine_weight_gpu
 from megatron.mpu.initialize import get_model_parallel_world_size
 from megatron.mpu.utils import divide
@@ -194,10 +193,6 @@ class ParallelGroupedMLP(torch.nn.Module):
 
         self.total_loras = self.loras_per_rank * self.experts_per_rank        
         self.sort_end_bit = max(int(np.ceil(np.log2(self.total_loras))), 1)
-        self.out_norms = torch.zeros(size=(4,)).to(torch.cuda.current_device())
-
-
-
 
         # Allow custom intermediate size
         if neox_args.intermediate_size is not None:
@@ -238,8 +233,6 @@ class ParallelGroupedMLP(torch.nn.Module):
         _initialize_affine_weight_gpu(
             self.w2, output_layer_init_method, partition_dim=0, stride=stride
         )
-
-
 
 
         # TODO: why do we need this? was in original megablocks code

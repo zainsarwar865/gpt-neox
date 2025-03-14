@@ -526,7 +526,7 @@ class NeoXArgsOptimizer(NeoXArgsTemplate):
     Zero: Number of elements allgathered at a time. Limits the memory required for the allgather for large model sizes
     """
 
-    lr: float = None
+    lr: float = 3e-4
     """
     Max Learning rate during training
     """
@@ -548,11 +548,11 @@ class NeoXArgsLRScheduler(NeoXArgsTemplate):
     Number of iterations to decay learning rate over, If None defaults to --train-iters
     """
 
-    min_lr: float = 0.0
+    min_lr: float = 3e-5
     """
     Minimum value for learning rate. The scheduler clips values below this threshold.
     """
-    constant_lr: float = 0.0
+    constant_lr: float = 1.65e-4
     """
     Constant learning rate when using infinite cosine or infinite inv sqrt decay styles.
     """

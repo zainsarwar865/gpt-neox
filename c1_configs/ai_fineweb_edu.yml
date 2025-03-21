@@ -39,12 +39,14 @@
   "optimizer": {
      "type": "Adam",
      "params": {
+       "lr": 5.0e-4,
        "betas": [0.9, 0.95],
        "eps": 1.0e-8,
      }
    },
 
-
+  "min_lr": 5.0e-5,
+  "constant_lr": 1.65e-4,
   "lr_decay_style": "infinite_cosine",
   "constant_iters_perc": 0.10,
   "cooldown_iters_perc": 0.7,
@@ -85,10 +87,10 @@
 
 
    # misc. training settings
-   "train_iters": 11000,
-   "lr_decay_iters": 11000,
+   "train_iters": 120000,
+   "lr_decay_iters": 120000,
    "distributed_backend": "nccl",
-   "checkpoint_factor": 1000,
+   "checkpoint_factor": 20000,
    "eval_interval": 1000,
    "eval_iters": 10,
 
@@ -99,38 +101,18 @@
    "wall_clock_breakdown": true,
 
   "no_ssh_check": true,
-
-  "train-data-paths": [
-    "/net/scratch/zsarwar/Datasets/Fineweb/tokenized/tokenized_train/tokenized_fineweb_edu_2B_text_document",
-  ],
-  "train-data-weights":[
-      1.0 
-  ],
-  "test-data-paths": [
-    "/net/scratch/zsarwar/Datasets/Fineweb/tokenized/tokenized_val/tokenized_fineweb_edu_500M_text_document",
-  ],
-  "test-data-weights":[
-      1.0 
-  ],
-  "valid-data-paths": [
-  "/net/scratch/zsarwar/Datasets/Fineweb/tokenized/tokenized_val/tokenized_fineweb_edu_500M_text_document",
-  ],
-  "valid-data-weights":[
-      1.0 
-  ],
-
-  "vocab_file": "/net/projects/mmairegroup/zsarwar/tokenizers/llama3_tokenizer.json",
   "tokenizer_type": "HFTokenizer",
   "save": "checkpoints",
   "load": 'none',
   "checkpoint_validation_with_forward_pass": False,
 
-  "base_dir": "/net/scratch/zsarwar/exps",
   "tensorboard_dir": "tensorboard",
   "log_dir": "logs",
   "use_wandb": False,
   "wandb_host": "https://api.wandb.ai",
   "wandb_project": "neox",
   "num_workers": 2,
+
+  "launcher": "torchrun",
 
 }

@@ -28,8 +28,8 @@ def main(input_args=None):
     from megatron.utils import get_wandb_api_key
 
     neox_args = NeoXArgs.consume_deepy_args(input_args)
-    deepspeed_main_args = neox_args.get_deepspeed_main_args()
 
+    deepspeed_main_args = neox_args.get_deepspeed_main_args()
     # Extract wandb API key and inject into worker environments
     wandb_token = get_wandb_api_key(neox_args=neox_args)
     if wandb_token is not None:

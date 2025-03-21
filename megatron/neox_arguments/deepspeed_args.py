@@ -318,7 +318,7 @@ class NeoXArgsDeepspeedRunner(NeoXArgsTemplate):
     Max number of GPUs to use on each node, will use [0:N) GPU ids on each node. None / not specifying a value will use all.
     """
 
-    master_port: int = 29500
+    master_port: int = 29520
     """
     Port used by PyTorch distributed for communication during training.
     """

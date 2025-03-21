@@ -69,7 +69,7 @@ ZERO_DEFAULTS = {
 # NeoX optimizer defaults
 OPT_DEFAULT = "Adam"
 OPT_PARAMS_DEFAULTS = {
-    "lr": 0.001,
+    "lr": 3e-4,
     "betas": [0.9, 0.999],
     "eps": 1.0e-8,
     "weight_decay": 0,

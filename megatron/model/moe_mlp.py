@@ -61,7 +61,7 @@ class ParallelGroupedLoRas(torch.nn.Module):
         Copied from SparseMLP
         """
         super().__init__()
-
+        
         self.multiple_of = multiple_of
 
         world_size = get_model_parallel_world_size()
@@ -167,7 +167,7 @@ class ParallelGroupedMLP(torch.nn.Module):
         Copied from SparseMLP
         """
         super(ParallelGroupedMLP, self).__init__()
-
+        self.args = neox_args
         self.activation_func = get_activation(neox_args)
         self.activation_type = neox_args.activation
 
@@ -398,9 +398,14 @@ class ParallelGroupedMLP(torch.nn.Module):
 
         # Compute the MLP
         x = gg.ops.gmm(x, w1, grouped_gemm_batch_sizes, trans_b=True)
-        scaled_x = x + x_1_loras
-        x = self.activation_func(scaled_x)
+        if self.args.lora_interaction_type == 'addition':          
+            scaled_x = x + x_1_loras
+            x = self.activation_func(scaled_x)
+        elif self.args.lora_interaction_type == 'geglu':
+            x = x_1_loras * self.activation_func(x)
+        else:
+            raise("LoRe interaction not defined")
 
         x = gg.ops.gmm(x, w2, grouped_gemm_batch_sizes)
-
+    
         return x

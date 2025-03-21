@@ -473,7 +473,7 @@ class NeoXArgsModel(NeoXArgsTemplate):
     train_dataset_name : str = None
     moe_lora_aux_loss_coeff: float = 0.0
     moe_z_loss_coeff : float = 0.0
-
+    lora_interaction_type: str = 'addition' # addition, geglu
 
 @dataclass
 class NeoXArgsOptimizer(NeoXArgsTemplate):

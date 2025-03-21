@@ -1,13 +1,13 @@
 {
 
   "moe_router_type": "topk",
-  "moe_num_experts": 7,
+  "moe_num_experts": 1,
   "moe_top_k": 1,
   "moe_expert_interval": 1,
   "intermediate_size": 3072,
-  "moe_aux_loss_coeff": 0.01,
+  "moe_aux_loss_coeff": 0.0,
   "lora_rank" : 8,
-  "moe_lora_experts" : 8,
+  "moe_lora_experts" : 16,
   "lora_top_k" : 1,
   "moe_lora_aux_loss_coeff" : 0.001, 
   "lora_interaction_type" : 'addition', # addition, geglu

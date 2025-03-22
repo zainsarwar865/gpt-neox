@@ -1,1 +1,0 @@
-../../deepy.py ../../train.py ../moe_410M_8c1_lora_128.yml

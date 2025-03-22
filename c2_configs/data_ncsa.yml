@@ -1,0 +1,26 @@
+{
+
+  "train-data-paths": [
+    "/scratch/bdgs/zsarwar/datasets/tokenized_train/tokenized_train_12b_text_document",
+  ],
+  "train-data-weights":[
+      1.0 
+  ],
+  "test-data-paths": [
+    "/scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document",
+  ],
+  "test-data-weights":[
+      1.0 
+  ],
+  "valid-data-paths": [
+    "/scratch/bdgs/zsarwar/datasets/tokenized_val/tokenized_val_2b_text_document",
+  ],
+  "valid-data-weights":[
+      1.0 
+  ],
+  
+  "vocab_file": "/u/zsarwar/data/tokenizers/llama3_tokenizer.json",
+
+  "base_dir": "/u/zsarwar/exps/",
+
+}

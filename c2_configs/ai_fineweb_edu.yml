@@ -102,13 +102,11 @@
 
   "no_ssh_check": true,
 
-  "vocab_file": "/net/projects/mmairegroup/zsarwar/tokenizers/llama3_tokenizer.json",
   "tokenizer_type": "HFTokenizer",
   "save": "checkpoints",
   "load": 'none',
   "checkpoint_validation_with_forward_pass": False,
 
-  "base_dir": "/net/scratch/zsarwar/exps",
   "tensorboard_dir": "tensorboard",
   "log_dir": "logs",
   "use_wandb": False,

@@ -1,0 +1,1 @@
+../../deepy.py ../../train.py ../base.yml ../data_ai.yml

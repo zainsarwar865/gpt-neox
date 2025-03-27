@@ -133,8 +133,18 @@ class NeoXArgs(*BASE_CLASSES):
             )
 
         hostname = f"{gethostname()}"
-        ckpt_hostname = '-'.join(hostname.split('-')[0:-2]) + '-master-0'        
-        hash_config = str(self.config_files)
+        if '-' in hostname:
+            ckpt_hostname = '-'.join(hostname.split('-')[0:-2]) + '_master-0'        
+        else:
+            ckpt_hostname = hostname + '_master-0'        
+        
+        copy_dict = self.config_files.copy()
+        for k in copy_dict.keys():
+            if 'data' in k:
+                rem_key = k
+                break
+        copy_dict.pop(rem_key)
+        hash_config = str(copy_dict)
         hash_config = (hashlib.md5(hash_config.encode('UTF-8'))).hexdigest()
         ckpt_hostname = f"{'-'.join(hostname.split('-')[0:-2])}-master-0-{hash_config}"
         hostname=f"{gethostname()}-{hash_config}"
@@ -168,7 +178,7 @@ class NeoXArgs(*BASE_CLASSES):
             try:
                 from torch.utils.tensorboard import SummaryWriter
                 print("> setting tensorboard ...")
-                print("seeeeeee", self.tensorboard_dir)
+                print(self.tensorboard_dir)
 
                 self.tensorboard_writer = SummaryWriter(log_dir=self.tensorboard_dir)
             except (ModuleNotFoundError, ImportError):

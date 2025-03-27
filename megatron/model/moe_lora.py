@@ -17,8 +17,7 @@ from megatron.mpu import get_expert_tokens_for_rank
 from megatron.mpu import copy_to_expert_model_parallel_region
 from megatron.mpu import gather_from_expert_model_parallel_region
 from megatron.neox_arguments.arguments import NeoXArgs
-
-from .moe_mlp import ParallelGroupedLLaMAMLP, ParallelGroupedMLP
+from .moe_mlp_lora import  ParallelGroupedMLP
 from .router import TopKTokenChoiceRouter, SinkhornRouter, SparseMixerRouter
 
 
@@ -60,15 +59,9 @@ class ParallelDroplessMLP(torch.nn.Module):
                 output_layer_init_method=output_layer_init_method,
             )
         elif neox_args.mlp_type == "llama":
-            self.mlp = ParallelGroupedLLaMAMLP(
-                neox_args=neox_args,
-                init_method=init_method,
-                output_layer_init_method=output_layer_init_method,
-            )
+            pass
         else:
             raise KeyError(neox_args.mlp_type)
-
-
 
     def indices_and_bins(self, top_expert: torch.Tensor):
         # Sort the expert ids to produce the scatter/gather
@@ -145,11 +138,11 @@ class ParallelDroplessMLP(torch.nn.Module):
         # with torch.no_grad():
         local_tokens_per_expert = get_expert_token_counts_for_rank(tokens_per_expert)
         # if torch.cuda.current_device() == 0:
-        #     print(f"{torch.cuda.current_device()}: local_tokens_per_expert {local_tokens_per_expert}, global tokens {tokens_per_expert}")
+        #     print(f"{torch.cuda.current_device()}: tokens_per_expert {local_tokens_per_expert}")
 
         # Perform the expert computation for this rank's experts
         output_parallel = self.mlp(input_parallel, local_tokens_per_expert)
-    
+
         # all gather masked results from across Tensor parallel ranks here and cat them together
         # this will replicate the calculation of each expert across all ranks
         # NOTE: this combined all_gather and torch.cat operation is performed by gather_from_model_parallel_region(output_parallel)
@@ -189,6 +182,7 @@ class ParallelDroplessMLP(torch.nn.Module):
             indices, bin_ids, bins, tokens_per_expert = self.indices_and_bins(
                 expert_indices
             )
+
 
         x = self.permute_and_compute(
             x,
@@ -236,6 +230,7 @@ class ParallelDroplessMoE(torch.nn.Module):
                 neox_args,
                 init_method,
             )
+
         elif neox_args.moe_router_type == "sparsemixer":
             self.router = SparseMixerRouter(
                 neox_args,
@@ -250,13 +245,18 @@ class ParallelDroplessMoE(torch.nn.Module):
             output_layer_init_method,
         )
 
+        self.args = neox_args
+
+
     def forward(self, x):
         # we expect inputs as (sl, bs, hs)
         # neox provides inputs as torch.Size([2048, 4, 768])
         # (sl, bs, hs)
-
+        # if self.args.iteration > 1500:
+        #     exit()
         # NOTE: If we're going to cast the activations to lower precision
         # do it before we permute the tokens to save bandwidth
+        
         x = cast_if_autocast_enabled(x)
 
         # Compute the expert scores and assignments

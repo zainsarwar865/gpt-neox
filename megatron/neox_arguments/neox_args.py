@@ -463,10 +463,19 @@ class NeoXArgsModel(NeoXArgsTemplate):
     Parameter controlling whether the output layer is parallelized over the hidden dim (row) or the vocab dim (column)
     """
 
-
-    moe_aux_loss_coeff : float = 0
+    """
+    LoRa arguments
+    """
+    branch: str = 'base-moe' # ["base-moe", "lora", "hetro" ]
+    moe_lora_experts: int = 0
+    num_minion_experts: int = 0
+    lora_top_k : int = 0
+    lora_rank: int = 0
+    moe_aux_loss_coeff: float = 0.00
     train_dataset_name : str = None
-
+    moe_lora_aux_loss_coeff: float = 0.0
+    moe_z_loss_coeff : float = 0.0
+    lora_interaction_type: str = 'addition' # addition, geglu
 
 @dataclass
 class NeoXArgsOptimizer(NeoXArgsTemplate):
@@ -1213,10 +1222,6 @@ class NeoXArgsTraining(NeoXArgsTemplate):
     What to scale width by when creating the delta model for mup
     """
 
-    moe_z_loss_coeff : float = 0.0
-
-
-
 
 @dataclass
 class NeoXArgsTextgen(NeoXArgsTemplate):
@@ -1315,7 +1320,7 @@ class NeoXArgsMoE(NeoXArgsTemplate):
     The number of experts each token is routed to in MoE layers.
     """
 
-    moe_router_type: Literal["sinkhorn", "topk", 'sparsemixer'] = "sinkhorn"
+    moe_router_type: Literal["sinkhorn", "topk", "sparsemixer"] = "sinkhorn"
     """
     What token routing algorithm to use. Currently only sinkhorn is supported for training.
     TopK is only used for inference/eval.

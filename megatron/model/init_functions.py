@@ -22,6 +22,13 @@ except ImportError:
     pass
 
 
+def init_method_zeros():
+    def init_(tensor):
+        return torch.nn.init.zeros_(tensor)
+    return init_
+
+
+
 def init_method_normal(sigma, use_mup_outer=False, mup_init_scale=1.0):
     """Init method based on N(0, sigma)."""
 

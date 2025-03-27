@@ -22,5 +22,5 @@
   "vocab_file": "/u/zsarwar/data/tokenizers/llama3_tokenizer.json",
 
   "base_dir": "/u/zsarwar/exps/",
-
+  "load": 'none',
 }

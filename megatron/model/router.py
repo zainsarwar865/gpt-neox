@@ -18,13 +18,11 @@
 import torch
 
 from megatron.neox_arguments.arguments import NeoXArgs
-from megatron.mpu import get_model_parallel_group, get_model_parallel_rank
+from megatron.mpu import get_model_parallel_group, get_model_parallel_rank, get_model_parallel_world_size, get_data_parallel_group
 import megablocks.ops
-
-
-
-
-
+from megatron.mpu.utils import divide
+from megatron.mpu.layers import _initialize_affine_weight_gpu
+from megablocks import grouped_gemm_util as gg
 
 
 
@@ -41,16 +39,6 @@ def z_loss_func(logits, z_loss_coeff):
 
     z_loss = torch.mean(torch.square(torch.logsumexp(logits, dim=-1))) * z_loss_coeff
     return z_loss
-
-
-
-
-
-
-
-
-
-
 
 
 class SinkhornRouter(torch.nn.Module):
@@ -725,6 +713,381 @@ class SparseMixerRouter(nn.Module):
             expert_indices_ft = expert_indices.flatten()
             tokens_per_expert = megablocks.ops.histogram(expert_indices_ft, self.num_experts)
 
+
+        expert_weights = self.apply_load_balancing_loss(scores, tokens_per_expert, activation=expert_weights)
+
+        return expert_weights, expert_indices
+
+
+
+class TopKTokenChoiceRouterLoRa(torch.nn.Module):
+    # TODO: how do we ensure that all copies of the router get the same
+    # initializations and stay in sync over time? Or is this handled by RNG seeding?
+    def __init__(
+        self,
+        neox_args: NeoXArgs,
+        init_method,
+    ):
+        super().__init__()
+        self.jitter_eps = neox_args.moe_jitter_eps
+        self.top_k = neox_args.lora_top_k
+        self.num_experts = neox_args.moe_num_experts
+        self.moe_z_loss_coeff = neox_args.moe_z_loss_coeff
+        self.hidden_size = neox_args.hidden_size
+        self.aux_loss_coeff = neox_args.moe_lora_aux_loss_coeff
+        self.expert_parallel_group = get_model_parallel_group()
+        self.expert_parallel_rank = get_model_parallel_rank()
+        world_size = get_model_parallel_world_size()
+        self.num_loras = neox_args.moe_lora_experts
+        self.num_experts = neox_args.moe_num_experts
+        self.experts_per_rank = divide(self.num_experts, world_size)
+        self.loras_per_rank = divide(self.num_loras, world_size)
+        self.num_rows_per_rank = self.loras_per_rank *  self.experts_per_rank
+        self.total_loras = self.loras_per_rank * self.experts_per_rank
+
+
+        # Learned router parameters.
+        #
+        # NOTE: This weight matrix is not parallelized with expert tensor
+        # parallelism. Each device needs the entire router weight matrix
+        # so that it can route its batch of data correctly.
+        self.w1 = torch.nn.Parameter( 
+                    torch.empty(
+                        self.num_rows_per_rank,
+                        self.hidden_size,
+                        device=torch.cuda.current_device(),
+                        dtype=neox_args.params_dtype
+                        )
+        )
+
+        _initialize_affine_weight_gpu(self.w1, init_method, partition_dim=0, stride=1)
+
+        self.gradient_scale = None
+        if world_size > 1:
+            self.gradient_scale = 1 / world_size
+
+    def jitter(self, x):
+        """
+        Apply jittering to the input tensor during training.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Jittered input tensor.
+        """
+        low = 1.0 - self.jitter_eps
+        high = 1.0 + self.jitter_eps
+        noise = torch.rand(x.size(), dtype=x.dtype, device=x.device)
+        return low + noise * (high - low)
+
+    def _top_k(self, scores):
+        """
+        Select the top-k experts based on input scores.
+
+        Args:
+            scores (torch.Tensor): Input scores from the router.
+                (sl * bs, num_experts)
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Tuple containing expert weightings and indices of selected experts.
+
+
+        """
+        if self.top_k == 1:
+            return scores.max(dim=-1, keepdim=True)
+        return torch.topk(scores, self.top_k, dim=-1)
+    
+
+    def switch_load_balancing_loss_func(self,
+        probs: torch.Tensor, tokens_per_expert: torch.Tensor, topk: int, moe_aux_loss_coeff: float
+    ):
+        """Calculate the auxiliary loss for better load balacing. 
+        Please refer to the Switch Transformer paper (https://arxiv.org/abs/2101.03961) for details.
+
+        Args:
+            probs (torch.Tensor): The softmax probs output by the router for each token. [num_tokens, num_experts]
+            tokens_per_expert (torch.Tensor): The number of assigned tokens for each expert. [num_experts]
+
+        Returns:
+            torch.Tensor: The auxiliary loss for load balancing.
+        """
+        num_tokens = probs.shape[0] * topk
+        num_experts = probs.shape[1]
+
+        probs_mean_per_expert = probs.mean(dim=0)
+        aux_loss = torch.sum(probs_mean_per_expert * tokens_per_expert) * (
+            num_experts / num_tokens * moe_aux_loss_coeff
+        )
+        return aux_loss
+
+
+    def apply_z_loss(self, logits):
+        """Encourages the router's logits to remain small to enhance stability.
+        Please refer to the ST-MoE paper (https://arxiv.org/pdf/2202.08906.pdf) for details.
+
+        Args:
+            logits (torch.Tensor): The logits of the router.
+
+        Returns:
+            torch.Tensor: The logits after applying the z-loss.
+        """
+        if self.moe_z_loss_coeff is not None:
+            z_loss = z_loss_func(logits, self.moe_z_loss_coeff)
+            logits = MoEAuxLossAutoScaler.apply(logits, z_loss)
+            return logits, z_loss
+        else:
+            return logits, None
+
+
+    
+    def apply_load_balancing_loss(
+            self,
+            probs: torch.Tensor,
+            num_local_tokens_per_expert: torch.Tensor,
+            activation: torch.Tensor,
+        ):
+            """Applies auxiliary loss to the MoE layer.
+
+            Args:
+                probs (torch.Tensor): The probs output by the router for each token. [num_tokens, num_experts]
+                num_local_tokens_per_expert (torch.Tensor): The number of tokens per expert. [num_experts]
+                activation (torch.Tensor): The activation tensor to attach the gradient function to.
+
+            Returns:
+                torch.Tensor: The activation tensor with the attached gradient function.
+            """            
+            aux_loss = self.switch_load_balancing_loss_func(
+                probs, num_local_tokens_per_expert, self.top_k, self.aux_loss_coeff
+            )
+
+            # if torch.cuda.current_device() == 0:
+            #     print("Aux loss : ", aux_loss)
+
+            activation = MoEAuxLossAutoScaler.apply(activation, aux_loss)
+            
+            return activation
+
+
+    def scale_grad(self, w: torch.Tensor):
+        """
+        Copied from SparseMLP
+        """
+        if self.gradient_scale is None:
+            return w
+        return scale_gradient(w, self.gradient_scale)
+
+
+    def generate_offsets(self, tokens_per_expert, num_loras):
+        cum_lenghts = torch.cumsum(tokens_per_expert, dim=0)
+        indices = torch.arange(cum_lenghts[-1]) + 1
+        segments = (torch.searchsorted(cum_lenghts, indices, right=False) * num_loras).to(device=torch.cuda.current_device())
+
+        return segments
+
+
+
+
+    def forward(self, x, grouped_gemm_batch_sizes):
+        """
+        Forward pass through the Learned Router.
+
+        Args:
+            x (torch.Tensor): Input tensor to be routed.
+                (sl, bs, hs)
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Tuple containing
+                - expert_weights (sl * bs, top_k): Weights assigned to the selected experts
+                - expert_indices (sl * bs, top_k): Indices of the selected experts
+        """
+        if self.training and self.jitter_eps is not None:
+            x = x * self.jitter(x)
+
+
+        # GMM on the router layer
+        w1 = self.scale_grad(self.w1)
+
+        w1 = w1.view(self.experts_per_rank, self.hidden_size, self.loras_per_rank)
+        # Logits for each router
+        scores = gg.ops.gmm(x, w1, grouped_gemm_batch_sizes).softmax(dim=-1) # [num_tokens, lora_distribution]
+        expert_weights, expert_indices = self._top_k(scores)
+
+        with torch.no_grad():
+            expert_indices_ft = expert_indices.flatten() #+ offset_vector
+        start = 0
+        for i in grouped_gemm_batch_sizes:
+            if i > 0:
+                with torch.no_grad():
+                    tokens_per_lora = megablocks.ops.histogram(expert_indices_ft[start:i + start], self.num_loras)
+                expert_weights[start:i + start, :] = self.apply_load_balancing_loss(scores[start:i + start, :], tokens_per_lora, activation=expert_weights[start:i + start, :])
+            start = i
+
+        return expert_weights, expert_indices
+    
+
+
+
+class TopKTokenChoiceRouterMinion(torch.nn.Module):
+    # TODO: how do we ensure that all copies of the router get the same
+    # initializations and stay in sync over time? Or is this handled by RNG seeding?
+
+    def __init__(
+        self,
+        neox_args: NeoXArgs,
+        init_method,
+    ):
+        super().__init__()
+        self.jitter_eps = neox_args.moe_jitter_eps
+        self.top_k = neox_args.lora_top_k
+        self.num_experts = neox_args.moe_lora_experts
+        self.aux_loss_coeff = neox_args.moe_aux_loss_coeff
+        self.moe_z_loss_coeff = neox_args.moe_z_loss_coeff
+
+        # Learned router parameters.
+        #
+        # NOTE: This weight matrix is not parallelized with expert tensor
+        # parallelism. Each device needs the entire router weight matrix
+        # so that it can route its batch of data correctly.
+        self.layer = torch.nn.Linear(
+            neox_args.hidden_size,
+            neox_args.moe_lora_experts,
+            bias=False,
+            dtype=neox_args.params_dtype,
+            device=torch.cuda.current_device(),
+        )
+        init_method(self.layer.weight)
+
+    def jitter(self, x):
+        """
+        Apply jittering to the input tensor during training.
+
+        Args:
+            x (torch.Tensor): Input tensor.
+
+        Returns:
+            torch.Tensor: Jittered input tensor.
+        """
+        low = 1.0 - self.jitter_eps
+        high = 1.0 + self.jitter_eps
+        noise = torch.rand(x.size(), dtype=x.dtype, device=x.device)
+        return low + noise * (high - low)
+
+    def _top_k(self, scores):
+        """
+        Select the top-k experts based on input scores.
+
+        Args:
+            scores (torch.Tensor): Input scores from the router.
+                (sl * bs, num_experts)
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Tuple containing expert weightings and indices of selected experts.
+
+
+        """
+        if self.top_k == 1:
+            return scores.max(dim=-1, keepdim=True)
+        return torch.topk(scores, self.top_k, dim=-1)
+    
+
+    def switch_load_balancing_loss_func(self,
+        probs: torch.Tensor, tokens_per_expert: torch.Tensor, topk: int, moe_aux_loss_coeff: float
+    ):
+        """Calculate the auxiliary loss for better load balacing. 
+        Please refer to the Switch Transformer paper (https://arxiv.org/abs/2101.03961) for details.
+
+        Args:
+            probs (torch.Tensor): The softmax probs output by the router for each token. [num_tokens, num_experts]
+            tokens_per_expert (torch.Tensor): The number of assigned tokens for each expert. [num_experts]
+
+        Returns:
+            torch.Tensor: The auxiliary loss for load balancing.
+        """
+        num_tokens = probs.shape[0] * topk
+        num_experts = probs.shape[1]
+
+        probs_mean_per_expert = probs.mean(dim=0)
+        aux_loss = torch.sum(probs_mean_per_expert * tokens_per_expert) * (
+            num_experts / num_tokens * moe_aux_loss_coeff
+        )
+        return aux_loss
+
+
+    def apply_z_loss(self, logits):
+        """Encourages the router's logits to remain small to enhance stability.
+        Please refer to the ST-MoE paper (https://arxiv.org/pdf/2202.08906.pdf) for details.
+
+        Args:
+            logits (torch.Tensor): The logits of the router.
+
+        Returns:
+            torch.Tensor: The logits after applying the z-loss.
+        """
+        if self.moe_z_loss_coeff is not None:
+            z_loss = z_loss_func(logits, self.moe_z_loss_coeff)
+            logits = MoEAuxLossAutoScaler.apply(logits, z_loss)
+            return logits, z_loss
+        else:
+            return logits, None
+
+
+    
+    def apply_load_balancing_loss(
+            self,
+            probs: torch.Tensor,
+            num_local_tokens_per_expert: torch.Tensor,
+            activation: torch.Tensor,
+        ):
+            """Applies auxiliary loss to the MoE layer.
+
+            Args:
+                probs (torch.Tensor): The probs output by the router for each token. [num_tokens, num_experts]
+                num_local_tokens_per_expert (torch.Tensor): The number of tokens per expert. [num_experts]
+                activation (torch.Tensor): The activation tensor to attach the gradient function to.
+
+            Returns:
+                torch.Tensor: The activation tensor with the attached gradient function.
+            """            
+            aux_loss = self.switch_load_balancing_loss_func(
+                probs, num_local_tokens_per_expert, self.top_k, self.aux_loss_coeff
+            )
+
+            activation = MoEAuxLossAutoScaler.apply(activation, aux_loss)
+            
+            return activation
+
+
+    def forward(self, x):
+        """
+        Forward pass through the Learned Router.
+
+        Args:
+            x (torch.Tensor): Input tensor to be routed.
+                (sl, bs, hs)
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Tuple containing
+                - expert_weights (sl * bs, top_k): Weights assigned to the selected experts
+                - expert_indices (sl * bs, top_k): Indices of the selected experts
+        """
+        if self.training and self.jitter_eps is not None:
+            x = x * self.jitter(x)
+
+        # x.view shape: (sl * bs, hs)...every token as a row
+        # scores (float) shape: (sl * bs, num_experts)...expert rankings for every token
+        scores = self.layer(x.view(-1, x.shape[-1])).softmax(dim=-1)
+        #logits, z_loss = self.apply_z_loss(logits)
+        #z_loss_temp = z_loss.detach()
+
+
+        # expert_weights (float) shape: (sl * bs, top_k)...value(s) from scores corresponding to the top_k experts
+        # expert_indices (int) shape: (sl * bs, top_k)...index(indices) from scores corresponding to the top_k experts
+        expert_weights, expert_indices = self._top_k(scores)
+
+        with torch.no_grad():
+            expert_indices_ft = expert_indices.flatten()
+            tokens_per_expert = megablocks.ops.histogram(expert_indices_ft, self.num_experts)
 
         expert_weights = self.apply_load_balancing_loss(scores, tokens_per_expert, activation=expert_weights)
 

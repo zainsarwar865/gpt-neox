@@ -24,7 +24,7 @@ import torch.nn as nn
 from pkg_resources import packaging
 from importlib.metadata import version
 
-from megatron.model.moe import ParallelDroplessMoE
+
 
 from .norms import get_norm
 from megatron import mpu
@@ -1006,15 +1006,22 @@ class ParallelTransformerLayer(nn.Module):
                 raise KeyError(mlp_type)
 
         # Dense MLP
-        if self.num_experts <= 1:
-            self.mlp = get_mlp(neox_args.mlp_type)
-        # Dropless MoE MLP
-        else:
-            self.mlp = ParallelDroplessMoE(
-                neox_args=neox_args,
-                init_method=init_method,
-                output_layer_init_method=output_layer_init_method,
-            )
+        branch = neox_args.branch
+        if branch == 'base-moe':
+            from megatron.model.moe_base import ParallelDroplessMoE
+        elif branch == 'lora':
+            from megatron.model.moe_lora import ParallelDroplessMoE
+        elif branch == 'hetro':
+            from megatron.model.moe_hetro import ParallelDroplessMoE
+        # elif branch == 'full_lora':
+        #     from megatron.model.full_lora import ParallelDroplessMoE
+        
+        
+        self.mlp = ParallelDroplessMoE(
+            neox_args=neox_args,
+            init_method=init_method,
+            output_layer_init_method=output_layer_init_method,
+        )
 
         self.layer_past = None  # used to cache k/v pairs in inference
 
@@ -1120,7 +1127,7 @@ class ParallelTransformerLayer(nn.Module):
 
             with torch.enable_grad():
                 # dense llama MLP and MoE don't support bias
-                if self.mlp_type == "llama" or self.num_experts > 1:
+                if self.mlp_type == "llama" or self.num_experts > 0:
                     # No dropout either
                     assert mlp_bias is None
                     output = mlp_output + attention_output

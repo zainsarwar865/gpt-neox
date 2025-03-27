@@ -18,6 +18,7 @@ import logging
 import os
 os.environ['WORLD_SIZE'] = str(torch.cuda.device_count())
 os.environ['RANK'] = str(0)
+os.environ['NCCL_P2P_DISABLE']=str(1)
 import deepspeed.launcher.runner
 
 

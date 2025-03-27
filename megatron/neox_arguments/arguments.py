@@ -131,27 +131,28 @@ class NeoXArgs(*BASE_CLASSES):
                 self.__class__.__name__
                 + ".__post_init__() NeoXArgs keys cannot be validated"
             )
-
-        hostname = f"{gethostname()}"
-        if '-' in hostname:
-            ckpt_hostname = '-'.join(hostname.split('-')[0:-2]) + '_master-0'        
-        else:
-            ckpt_hostname = hostname + '_master-0'        
         
+        hostname = f"{gethostname()}"
+        # if '-' in hostname:
+        #     ckpt_hostname = '-'.join(hostname.split('-')[0:-2]) + '_master-0'        
+        # else:
+        #     ckpt_hostname = hostname + '_master-0'        
         copy_dict = self.config_files.copy()
+        rem_keys = []
         for k in copy_dict.keys():
-            if 'data' in k:
-                rem_key = k
-                break
-        copy_dict.pop(rem_key)
+            if 'data' in k or 'ckpt' in k:
+                rem_keys.append(k)
+        for key in rem_keys:
+            copy_dict.pop(key)
+
         hash_config = str(copy_dict)
         hash_config = (hashlib.md5(hash_config.encode('UTF-8'))).hexdigest()
-        ckpt_hostname = f"{'-'.join(hostname.split('-')[0:-2])}-master-0-{hash_config}"
-        hostname=f"{gethostname()}-{hash_config}"
-        self.expr_name = f"GPT_experts-{self.moe_num_experts}-topk-{self.moe_top_k}-layers{self.num_layers}-heads-{self.num_attention_heads}"
+        ckpt_hostname = f"master-0-{hash_config}"
+        hostname=f"{hash_config}"
+        self.expr_name = f"GPT_experts-{self.moe_num_experts}-topk-{self.moe_top_k}-layers{self.num_layers}-heads-{self.num_attention_heads}-{self.branch}"
         self.tensorboard_dir = os.path.join(self.base_dir, self.expr_name, hostname, self.tensorboard_dir)
         self.log_dir = os.path.join(self.base_dir, self.expr_name, hostname, self.log_dir)
-        self.save = os.path.join(self.base_dir, self.expr_name, ckpt_hostname, self.save)
+        self.save = os.path.join(self.base_dir, self.expr_name, hostname, ckpt_hostname, self.save)
 
 
         self.enable_logging()

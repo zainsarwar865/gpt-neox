@@ -19,5 +19,5 @@
   ],
   "vocab_file": "/net/projects/mmairegroup/zsarwar/tokenizers/llama3_tokenizer.json",
   "base_dir": "/net/scratch/zsarwar/exps",
-  "load": 'none',
+  
 }

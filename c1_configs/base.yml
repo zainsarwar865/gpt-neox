@@ -1,7 +1,7 @@
 {
   "branch": "base-moe",
   "moe_router_type": "topk",
-  "moe_num_experts": 2,
+  "moe_num_experts": 1,
   "moe_top_k": 1,
   "moe_expert_interval": 1,
   "intermediate_size": 3392,

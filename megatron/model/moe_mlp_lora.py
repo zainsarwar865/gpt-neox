@@ -139,8 +139,6 @@ class ParallelGroupedLoRas(torch.nn.Module):
             #w1_AB = torch.einsum('ijk,ikm->ijm', w1_A, w1_B)
             return gg.ops.gmm(gg.ops.gmm(x, w1_A, grouped_gemm_batch_sizes), w1_B, grouped_gemm_batch_sizes)
 
-
-
             # GG 
             #return gg.ops.gmm(x, w1_AB, grouped_gemm_batch_sizes)
         elif layer == 2:

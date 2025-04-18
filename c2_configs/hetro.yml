@@ -78,7 +78,7 @@
    "train_iters": 110000,
    "lr_decay_iters": 110000,
    "distributed_backend": "nccl",
-   "checkpoint_factor": 2000,
+   "checkpoint_factor": 1500,
    "eval_interval": 1000,
    "eval_iters": 10,
    "log_interval": 10,

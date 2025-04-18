@@ -1013,8 +1013,6 @@ class ParallelTransformerLayer(nn.Module):
             from megatron.model.moe_lora import ParallelDroplessMoE
         elif branch == 'hetro':
             from megatron.model.moe_hetro import ParallelDroplessMoE
-        # elif branch == 'full_lora':
-        #     from megatron.model.full_lora import ParallelDroplessMoE
         
         
         self.mlp = ParallelDroplessMoE(

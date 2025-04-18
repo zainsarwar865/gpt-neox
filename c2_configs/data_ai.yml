@@ -1,18 +1,18 @@
 {
   "train-data-paths": [
-    "/net/scratch/zsarwar/Datasets/Fineweb/tokenized/tokenized_train/tokenized_fineweb_edu_2B_text_document",
+    "/net/scratch/zsarwar/Datasets/Fineweb/tokenized_l/tokenized_train/tokenized_train_12b_text_document",
   ],
   "train-data-weights":[
       1.0 
   ],
   "test-data-paths": [
-    "/net/scratch/zsarwar/Datasets/Fineweb/tokenized/tokenized_val/tokenized_fineweb_edu_500M_text_document",
+    "/net/scratch/zsarwar/Datasets/Fineweb/tokenized_l/tokenized_val/tokenized_val_2b_text_document",
   ],
   "test-data-weights":[
       1.0 
   ],
   "valid-data-paths": [
-  "/net/scratch/zsarwar/Datasets/Fineweb/tokenized/tokenized_val/tokenized_fineweb_edu_500M_text_document",
+  "/net/scratch/zsarwar/Datasets/Fineweb/tokenized_l/tokenized_val/tokenized_val_2b_text_document",
   ],
   "valid-data-weights":[
       1.0 

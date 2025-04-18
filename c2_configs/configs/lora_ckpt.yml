@@ -1,3 +1,3 @@
 {
-   "load": 'none'
+   "load": '/net/scratch/zsarwar/exps/GPT_experts-2-topk-1-layers12-heads-12-lora/5d6b03d799793fa8d078bf4198961ac9/master-0-5d6b03d799793fa8d078bf4198961ac9/checkpoints'
 }

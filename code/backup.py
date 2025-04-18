@@ -31,7 +31,7 @@ def backup_dirs_excluding_master(base_dir, backup_dir):
         # Ignore function to skip -master dirs
         def ignore_master_dirs(dir_path, contents):
             return [item for item in contents
-                    if (Path(dir_path) / item).is_dir() and item.startswith("-master")]
+                    if (Path(dir_path) / item).is_dir() and item.startswith("master")]
 
         print(f"Backing up {subdir} -> {backup_subdir}")
         shutil.copytree(
@@ -66,5 +66,15 @@ if __name__ == "__main__":
 /net/scratch/zsarwar/exps/GPT_experts-3-topk-1-layers12-heads-12 -> /net/projects/mmairegroup/zsarwar/backup/GPT_experts-3-topk-1-layers12-heads-12
 /net/scratch/zsarwar/exps/GPT_experts-1-topk-1-layers12-heads-12 -> /net/projects/mmairegroup/zsarwar/backup/GPT_experts-1-topk-1-layers12-heads-12
 /net/scratch/zsarwar/exps/GPT_experts-16-topk-4-layers12-heads-12 -> /net/projects/mmairegroup/zsarwar/backup/GPT_experts-16-topk-4-layers12-heads-12
+
+"""
+
+"""
+/net/scratch/zsarwar/exps/GPT_experts-1-topk-1-layers12-heads-12-lora -> /net/projects/mmairegroup/zsarwar/backup/GPT_experts-1-topk-1-layers12-heads-12-lora
+/net/scratch/zsarwar/exps/GPT_experts-3-topk-1-layers12-heads-12-hetro -> /net/projects/mmairegroup/zsarwar/backup/GPT_experts-3-topk-1-layers12-heads-12-hetro
+/net/scratch/zsarwar/exps/GPT_experts-8-topk-1-layers12-heads-12-base-moe -> /net/projects/mmairegroup/zsarwar/backup/GPT_experts-8-topk-1-layers12-heads-12-base-moe
+/net/scratch/zsarwar/exps/GPT_experts-4-topk-1-layers12-heads-12-base-moe -> /net/projects/mmairegroup/zsarwar/backup/GPT_experts-4-topk-1-layers12-heads-12-base-moe
+/net/scratch/zsarwar/exps/GPT_experts-1-topk-1-layers12-heads-12-base-moe -> /net/projects/mmairegroup/zsarwar/backup/GPT_experts-1-topk-1-layers12-heads-12-base-moe
+/net/scratch/zsarwar/exps/GPT_experts-4-topk-1-layers12-heads-12-hetro -> /net/projects/mmairegroup/zsarwar/backup/GPT_experts-4-topk-1-layers12-heads-12-hetro
 
 """

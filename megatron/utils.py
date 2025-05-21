@@ -394,6 +394,13 @@ def get_noise_scale_logger(neox_args):
 def get_total_params(model):
     # Print number of parameters.
     if mpu.get_data_parallel_rank() == 0:
+        
+        for name, param in model.named_parameters():
+            num_params = param.numel()
+            print(f"{name}: {num_params} parameters")
+            # total_params += num_params
+
+
         params = sum([p.nelement() for p in model.parameters()])
         print(
             " > number of parameters on model parallel rank {}: {}".format(

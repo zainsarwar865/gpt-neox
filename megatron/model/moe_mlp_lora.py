@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from .fused_lores_gemm import fused_lores_batched_gemm
 import torch
 from megatron.model.activations import get_activation, swish
 from megatron.mpu.layers import _initialize_affine_weight_gpu
@@ -137,6 +137,9 @@ class ParallelGroupedLoRas(torch.nn.Module):
             w1_A = w1_A.view(self.total_loras, self.hidden_size, self.lora_rank)
             w1_B = w1_B.view(self.total_loras, self.lora_rank, self.per_expert_ff_dim)
             #w1_AB = torch.einsum('ijk,ikm->ijm', w1_A, w1_B)
+            # new:
+            # Y = fused_lores_batched_gemm(x, w1_A, w1_B)
+            # return Y
             return gg.ops.gmm(gg.ops.gmm(x, w1_A, grouped_gemm_batch_sizes), w1_B, grouped_gemm_batch_sizes)
 
             # GG 

@@ -82,6 +82,7 @@ class SinkhornRouter(torch.nn.Module):
 
     def sinkhorn(self, cost: torch.Tensor, tol: float = 0.0001):
         """Sinkhorn based MoE routing function"""
+        print("Cost", cost.shape)
         cost = torch.exp(cost)
         d0 = torch.ones(cost.size(0), device=cost.device, dtype=cost.dtype)
         d1 = torch.ones(cost.size(1), device=cost.device, dtype=cost.dtype)
@@ -90,6 +91,7 @@ class SinkhornRouter(torch.nn.Module):
         error = 1e9
         d1_old = d1
         while error > tol:
+
             d0 = (1 / d0.size(0)) * 1 / (torch.sum(d1 * cost, 1) + eps)
             d1 = (1 / d1.size(0)) * 1 / (torch.sum(d0.unsqueeze(1) * cost, 0) + eps)
             error = torch.mean(torch.abs(d1_old - d1))
@@ -149,7 +151,7 @@ class SinkhornRouter(torch.nn.Module):
             # x.view shape: (sl * bs, hs)...every token as a row
             # router_logits (float) shape: (sl * bs, num_experts)...expert rankings for every token
             router_logits = self.layer(x.view(-1, x.shape[-1]))
-
+            print("Router logits", router_logits.shape)
             # expert_weights (float) shape: (sl * bs, top_k)...value(s) from scores corresponding to the top_k experts
             # expert_indices (int) shape: (sl * bs, top_k)...index(indices) from scores corresponding to the top_k experts
             expert_weights, expert_indices = self.sinkhorn_load_balancing(router_logits)
@@ -913,15 +915,15 @@ class TopKTokenChoiceRouterLoRa(torch.nn.Module):
         scores = gg.ops.gmm(x, w1, grouped_gemm_batch_sizes).softmax(dim=-1) # [num_tokens, lora_distribution]
         expert_weights, expert_indices = self._top_k(scores)
 
-        with torch.no_grad():
-            expert_indices_ft = expert_indices.flatten() #+ offset_vector
-        start = 0
-        for i in grouped_gemm_batch_sizes:
-            if i > 0:
-                with torch.no_grad():
-                    tokens_per_lora = megablocks.ops.histogram(expert_indices_ft[start:i + start], self.num_loras)
-                expert_weights[start:i + start, :] = self.apply_load_balancing_loss(scores[start:i + start, :], tokens_per_lora, activation=expert_weights[start:i + start, :])
-            start = i
+        # with torch.no_grad():
+        #     expert_indices_ft = expert_indices.flatten() #+ offset_vector
+        # start = 0
+        # for i in grouped_gemm_batch_sizes:
+        #     if i > 0:
+        #         with torch.no_grad():
+        #             tokens_per_lora = megablocks.ops.histogram(expert_indices_ft[start:i + start], self.num_loras)
+        #         expert_weights[start:i + start, :] = self.apply_load_balancing_loss(scores[start:i + start, :], tokens_per_lora, activation=expert_weights[start:i + start, :])
+        #     start = i
 
         return expert_weights, expert_indices
     
@@ -1085,10 +1087,10 @@ class TopKTokenChoiceRouterMinion(torch.nn.Module):
         # expert_indices (int) shape: (sl * bs, top_k)...index(indices) from scores corresponding to the top_k experts
         expert_weights, expert_indices = self._top_k(scores)
 
-        with torch.no_grad():
-            expert_indices_ft = expert_indices.flatten()
-            tokens_per_expert = megablocks.ops.histogram(expert_indices_ft, self.num_experts)
+        # with torch.no_grad():
+        #     expert_indices_ft = expert_indices.flatten()
+        #     tokens_per_expert = megablocks.ops.histogram(expert_indices_ft, self.num_experts)
 
-        expert_weights = self.apply_load_balancing_loss(scores, tokens_per_expert, activation=expert_weights)
+        # expert_weights = self.apply_load_balancing_loss(scores, tokens_per_expert, activation=expert_weights)
 
         return expert_weights, expert_indices

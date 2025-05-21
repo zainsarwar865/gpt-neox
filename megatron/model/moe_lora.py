@@ -20,6 +20,9 @@ from megatron.neox_arguments.arguments import NeoXArgs
 from .moe_mlp_lora import  ParallelGroupedMLP
 from .router import TopKTokenChoiceRouter, SinkhornRouter, SparseMixerRouter
 
+# import torch._dynamo
+# torch._dynamo.config.suppress_errors = True
+
 
 class ParallelDroplessMLP(torch.nn.Module):
     """
@@ -244,6 +247,9 @@ class ParallelDroplessMoE(torch.nn.Module):
             init_method,
             output_layer_init_method,
         )
+
+
+        # self.experts = torch.compile(self.experts)
 
         self.args = neox_args
 

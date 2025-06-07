@@ -1,1 +1,1 @@
-../../deepy.py ../../train.py ../base.yml ../data_ai.yml ../configs/base_ckpt.yml
+ ../../deepy.py ../../train.py ../base.yml ../data_ai.yml ../configs/base_ckpt.yml

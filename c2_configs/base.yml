@@ -4,7 +4,7 @@
   "moe_num_experts": 8,
   "moe_top_k": 1,
   "moe_expert_interval": 1,
-  "intermediate_size": 3400,
+  "intermediate_size": 3072,
   "moe_aux_loss_coeff": 0.01,
   "moe_z_loss_coeff": 0.0,
   "mlp_type" : 'regular', 

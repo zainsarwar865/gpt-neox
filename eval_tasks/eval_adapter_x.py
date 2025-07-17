@@ -1,4 +1,4 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2021, EleutherAI
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,19 @@
 # limitations under the License.
 
 from megatron.utils import is_local_main, print_rank_0
+import best_download
 
-import copy
+# patch best_download (eval harness downloader) to only happen on the first local rank
+fn = best_download.download_file
+
+
+def _download_file(*args, **kwargs):
+    if is_local_main():
+        fn(*args, **kwargs)
+
+
+best_download.download_file = _download_file
+
 import os
 import sys
 import dataclasses
@@ -23,20 +34,23 @@ from functools import partial
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 )
-
-lm_eval_local_path = "/fsx/vox781/Code/" 
-sys.path.insert(0, lm_eval_local_path) # Use insert(0, ...) to prioritize your local version
-
-
 from tqdm import tqdm
 import torch
 import torch.nn.functional as F
 
 from lm_eval.models.huggingface import HFLM
-from lm_eval import tasks, evaluator, utils, api
-from lm_eval.models.utils import chunks
+from lm_eval.api.model import CacheHook, CachingLM
+#from lm_eval import tasks, evaluator, utils, base
+from lm_eval import tasks, evaluator, utils
 from megatron.text_generation_utils import generate_samples_from_prompt
 from megatron import mpu
+
+
+from lm_eval.tasks import (
+    TaskManager,
+    get_task_dict,
+)
+
 
 
 class EvalHarnessAdapter(HFLM):
@@ -51,13 +65,13 @@ class EvalHarnessAdapter(HFLM):
     """
 
     def __init__(self, model, forward_step_fn, neox_args, batch_size=None):
-        self.cache_hook = api.model.CacheHook(None)
-        self._model = model
+        self.cache_hook = CacheHook(None)
+        self.model_lm = model
         self.neox_args = neox_args
         self.tokenizer = neox_args.tokenizer
         self._device = torch.device(f"cuda:{neox_args.local_rank}")
         self._eot_token_id = neox_args.tokenizer.eod_id
-        self._max_length = neox_args.max_position_embeddings
+        self._max_length = neox_args.max_position_embeddings // 2
         self._max_gen_toks = 128
         self._vocab_size = neox_args.padded_vocab_size
 
@@ -65,8 +79,11 @@ class EvalHarnessAdapter(HFLM):
         self.is_main = neox_args.rank == 0
         self.is_local_main = neox_args.local_rank == 0
         self.is_model_parallel = neox_args.model_parallel_size > 1
-        self.is_pipe_parallel = False #self.model.is_pipe_parallel
-        self.is_data_parallel = False #self.model.is_data_parallel
+        # self.is_pipe_parallel = self.model_lm.is_pipe_parallel
+        
+        self.is_pipe_parallel = neox_args.pipe_parallel_size > 0
+        # self.is_data_parallel = self.model_lm.is_data_parallel
+        self.is_data_parallel = True
         self.is_last_stage = (
             True if not self.is_pipe_parallel else model.is_last_stage()
         )  # only the last stage of the pipeline model will receive the logits
@@ -74,6 +91,10 @@ class EvalHarnessAdapter(HFLM):
         self.dp_rank = mpu.get_data_parallel_rank()
         self.dp_group = mpu.get_data_parallel_group()
         self.is_mp_rank_0 = mpu.get_model_parallel_rank() == 0
+        self._world_size = mpu.get_data_parallel_world_size()
+        self._rank = mpu.get_data_parallel_rank()
+
+
 
         self._batch_size = batch_size or (
             neox_args.batch_size * self.dp_world_size
@@ -89,8 +110,9 @@ class EvalHarnessAdapter(HFLM):
             generate_samples_from_prompt,
             neox_args=neox_args,
             model=model,
+            maximum_tokens=self._max_gen_toks,
+            temperature=0.0,
         )
-        self.task_manager = tasks.TaskManager()
 
     @property
     def vocab_size(self):
@@ -117,23 +139,15 @@ class EvalHarnessAdapter(HFLM):
     def device(self):
         return self._device
 
-    @property
-    def rank(self):
-        return 0
-
-    @property
-    def world_size(self):
-        return 1
-
-    def tok_encode(self, string: str, **kwargs):
+    def tok_encode(self, string: str):
         return self.tokenizer.encode(string)
 
-    def tok_decode(self, tokens, **kwargs):
+    def tok_decode(self, tokens):
         return self.tokenizer.decode(tokens)
 
-    def generate_until(self, requests):
+    def greedy_until(self, requests):
         """
-        Generate until is lm_eval harness' way to say "do greedy generation" - necessary for some tasks.
+        Greedy until is lm_eval harness' way to say "do greedy generation" - necessary for some tasks.
         the eval harness dispatches requests to the model, and the model does argmax generation, the results of which
         are returned to the eval harness to evaluate.
 
@@ -142,51 +156,22 @@ class EvalHarnessAdapter(HFLM):
         :param requests: Dictionary of requests containing the context (prompt) and 'until' - a token or
                          list of stop tokens.
         """
-        self.model.module.inference_mode(use_cache=True)  # tell model to cache kv pairs
+        self.model_lm.module.inference_mode(use_cache=True)  # tell model to cache kv pairs
         res = []
-
-        # get only the args from each Instance object
-        reqs = [req.args for req in requests]
 
         def _collate(x):
             toks = self.tokenizer.encode(x[0])
             return (len(toks), x[0])
 
-        reord = utils.Reorderer(reqs, _collate)
-        for context, gen_kwargs in tqdm(
-            reord.get_reordered(), "Running greedy generation"
-        ):
-            if isinstance(gen_kwargs, dict):
-                kwargs = copy.deepcopy(gen_kwargs)  # edge case for repeats > 1
-                if "until" in kwargs.keys():
-                    until = kwargs.pop("until")
-                    if isinstance(until, str):
-                        until = [kwargs]
-                    elif not isinstance(until, list):
-                        raise ValueError(
-                            f"Expected `kwargs['until']` to be of type Union[str,list] but got {until}"
-                        )
-            else:
-                raise ValueError(
-                    f"Expected `kwargs` to be of type `dict` but got {kwargs}"
-                )
-            if not until:
-                until = [self.tok_decode(self.eot_token_id)]
-            if "max_gen_toks" in kwargs.keys():
-                max_gen_toks = kwargs.pop("max_gen_toks")
-            else:
-                max_gen_toks = self.max_gen_toks
-
-            if "do_sample" in kwargs.keys():
-                kwargs.pop("do_sample")
-
+        reord = utils.Reorderer(requests, _collate)
+        for context, until in tqdm(reord.get_reordered(), "Running greedy generation"):
+            if isinstance(until, str):
+                until = [until]
             stop_tokens = [self.tokenizer.encode(i) for i in until]
             cont = self.generate(
                 text=context,
                 stop_tokens=stop_tokens,
                 recompute=self.neox_args.recompute,
-                maximum_tokens=max_gen_toks,
-                **kwargs,
             )
             if cont:
                 s = cont[0]["text"] or ""
@@ -197,11 +182,11 @@ class EvalHarnessAdapter(HFLM):
                 s = s.split(term)[0]
 
             # partial caching
-            self.cache_hook.add_partial("generate_until", (context, until), s)
+            self.cache_hook.add_partial("greedy_until", (context, until), s)
 
             res.append(s)
 
-        self.model.module.train_mode()  # set back to train mode
+        self.model_lm.module.train_mode()  # set back to train mode
         return reord.get_original(res)
 
     def _loglikelihood_tokens(self, requests, disable_tqdm=False):
@@ -212,7 +197,7 @@ class EvalHarnessAdapter(HFLM):
         :param requests: Dictionary of requests containing the context and the expected continuation.
         :param disable_tqdm: If True, disable tqdm progress bar.
         """
-        self.model.module.inference_mode(
+        self.model_lm.module.inference_mode(
             use_cache=False
         )  # tell model to gather parallel outputs, but not cache key-value pairs
 
@@ -226,7 +211,7 @@ class EvalHarnessAdapter(HFLM):
                 return (-len(toks), tuple(toks))
 
             reord = utils.Reorderer(requests, _collate)
-            for chunk in chunks(
+            for chunk in utils.chunks(
                 tqdm(reord.get_reordered(), disable=disable_tqdm), self.batch_size
             ):
                 inps, contlens, inplens, padding_length = [], [], [], None
@@ -259,12 +244,12 @@ class EvalHarnessAdapter(HFLM):
                     inps.append(inp.unsqueeze(0))
                     contlens.append(cont)
                     inplens.append(inplen)
+
                 logits = self._model_call(torch.cat(inps, dim=0))
                 res_len += len(chunk)
 
                 if logits is not None:
-                    multi_logits = F.log_softmax(logits, dim=-1)
-                    
+                    multi_logits = F.log_softmax(logits, dim=-1)  # [batch, seq, vocab]
                     for (cache_key, _, _), logits, inp, inplen, cont_toks in zip(
                         chunk, multi_logits, inps, inplens, contlens
                     ):
@@ -280,7 +265,6 @@ class EvalHarnessAdapter(HFLM):
                             .to(multi_logits.device)
                         )
                         max_equal = (greedy_tokens == cont_toks).all()
-                        
                         logits = torch.gather(
                             logits, 2, cont_toks.unsqueeze(-1)
                         ).squeeze(
@@ -298,7 +282,7 @@ class EvalHarnessAdapter(HFLM):
 
             # broadcast results to all ranks
             if self.is_pipe_parallel:
-                src_rank = self.model.grid.stage_to_global(self.model.num_stages - 1)
+                src_rank = self.model_ogrid.stage_to_global(self.model_lm.num_stages - 1)
                 if res:
                     logits_sums, max_equals = list(zip(*res))
                     logits_sums = torch.FloatTensor(logits_sums).cuda()
@@ -318,7 +302,7 @@ class EvalHarnessAdapter(HFLM):
                 logits_sums = logits_sums.tolist()
                 res = list(zip(logits_sums, max_equals))
 
-        self.model.module.train_mode()  # set back to train mode
+        self.model_lm.module.train_mode()  # set back to train mode
         return reord.get_original(res)
 
     def _dp_scatter(self, inps):
@@ -358,8 +342,14 @@ class EvalHarnessAdapter(HFLM):
         """
         Gather logits from all data parallel ranks
         """
+        # for x in logits:
+        #     if type(x) == torch.Tensor:
+        #         print(f'[RANK:{self.neox_args.rank}] in _dp_gather() logits', type(x), x.shape)
+        #     else:
+        #         print(f'[RANK:{self.neox_args.rank}] in _dp_gather() logits', type(x))
+
+        logits = logits[0]
         if logits is not None:
-            logits = logits[0]
             tensor_list = [torch.zeros_like(logits) for _ in range(self.dp_world_size)]
             torch.distributed.all_gather(
                 tensor_list, logits, group=mpu.get_data_parallel_group()
@@ -375,10 +365,11 @@ class EvalHarnessAdapter(HFLM):
 
         if self.neox_args.is_pipe_parallel:
             # need these flags to stop deepspeed pipe parallel from hanging
-            self.model.first_output_send = True
-            self.model.pipe_recv_buf = None
-        # logits = self._forward_step_fn(model=self.model, data_iterator=inps)
-        _, logits = self._forward_step_fn(model=self.model, data_iterator=inps)
+            self.model_lm.first_output_send = True
+            self.model_lm.pipe_recv_buf = None
+
+        _, logits = self._forward_step_fn(model=self.model_lm, data_iterator=inps)
+
         # gather outputs from all dp ranks:
         logits = self._dp_gather(logits)
 
@@ -398,46 +389,49 @@ class EvalHarnessAdapter(HFLM):
         eval_tasks=None,
         num_fewshot=0,
         bootstrap_iters=2,
+        description_dict=None,
         use_cache=True,
         name="neox",
         limit=None,
     ):
-        was_training = self.model.training
-        self.model.eval()
-        # in_micro_batches = (
-        #     self.model.micro_batches
-        # )  # store input microbatches - we need to set to 1 during eval, but want to return to its original value after
-        # self.model.micro_batches = 1
+        was_training = self.model_lm.training
+        self.model_lm.eval()
+        in_micro_batches = (
+            self.neox_args.train_micro_batch_size_per_gpu
+            # self.model_lm.micro_batches
+        )  # store input microbatches - we need to set to 1 during eval, but want to return to its original value after
+        self.model_lm.micro_batches = 1
         if eval_tasks is None:
             eval_tasks = [
-                # "lambada",
-                # "piqa",
-                # "hellaswag",
-                # "winogrande",
-                # "mathqa",
-                # "pubmedqa",
-                # "triviaqa",
-                "hellaswag"
+                "lambada",
+                "piqa",
+                "hellaswag",
+                "winogrande",
+                "mathqa",
+                "pubmedqa",
             ]
-
-        # register all the default tasks bundled with lm-evaluation-harness repository
-        self.task_manager.initialize_tasks()
 
         # Returns a list containing all values of the task registry that
         # match at least one of the patterns
-        # import fnmatch
+        import fnmatch
 
-        # def pattern_match(patterns, source_list):
-        #     task_names = set()
-        #     for pattern in patterns:
-        #     for matching in fnmatch.filter(source_list, pattern):
-        #         task_names.add(matching)
-        # #     return list(task_names)
-        # # import pdb; pdb.set_trace()
-        eval_tasks = self.task_manager.match_tasks(eval_tasks)
+        def pattern_match(patterns, source_list):
+            task_names = set()
+            for pattern in patterns:
+                for matching in fnmatch.filter(source_list, pattern):
+                    task_names.add(matching)
+            return list(task_names)
+
+
+        # Get tasks
+        task_manager = TaskManager()
+        
+        all_tasks = task_manager.all_tasks
+        #print("all_tasks : ", all_tasks)
+        #exit()
+        task_dict = task_manager.match_tasks(eval_tasks)
+        eval_tasks = sorted(list(task_dict))
         print(f"Found tasks: {eval_tasks}")
-
-        assert len(eval_tasks) > 0, "Must run at least one task"
 
         # **HACK INCOMING**:
         # first get task dict on local main rank
@@ -451,81 +445,35 @@ class EvalHarnessAdapter(HFLM):
         task_dict = tasks.get_task_dict(eval_tasks)
 
         lm = self
-
         if use_cache:
-            use_cache = (
-                "lm_cache/neox"
-                + "_dp_rank"
-                + str(self._dp_rank)
-                + "_dp_group"
-                + str(self._dp_group)
-                + ".db"
-            )
-            print(f"Using cache at {use_cache}...")
-            lm = lm_eval.api.model.CachingLM(
-                lm,
-                use_cache
-                # each rank receives a different cache db.
-                # necessary to avoid multiple writes to cache at once
-                # TODO: Append a subset of `neox_args` to the cache database
-                # name arg to distinguish model runs that use different configurations.
-            )
-
-        # from simple_evaluate:
-        # override fewshot values for all tasks we can
-        # for task_name in task_dict.keys():
-            # task_obj = task_dict[task_name]
-            # import pdb; pdb.set_trace()
-            # if type(task_obj) == tuple:
-            #     group, task_obj = task_obj
-            #     if task_obj is None:
-            #         continue
-
-            # config = task_obj._config
-
-            # if num_fewshot is not None:
-            #     if config["num_fewshot"] == 0:
-            #         utils.eval_logger.info(
-            #             f"num_fewshot has been set to 0 for {task_name} in its config. Manual configuration will be ignored."
-            #         )
-            #     else:
-            #         default_num_fewshot = config["num_fewshot"]
-            #         if not default_num_fewshot:
-            #             utils.eval_logger.warning(
-            #                 f"Overwriting default num_fewshot of {task_name} from {default_num_fewshot} to {num_fewshot}"
-            #             )
-
-            #         task_obj._config["num_fewshot"] = num_fewshot
+            # TODO(jon-tow): Append a subset of `neox_args` to the cache database
+            # name arg to distinguish model runs that use different configurations.
+            lm = CachingLM(lm, "lm_cache/" + name + ".db")
 
         results = evaluator.evaluate(
             lm=lm,
-            task_dict=task_dict,
-            limit=None,  # limit,
-            # limit=10,
+            task_dict=tasks.get_task_dict(eval_tasks),
+            #description_dict=description_dict,
+            #num_fewshot=num_fewshot,
+            limit=limit,
             bootstrap_iters=bootstrap_iters,
-            log_samples=False,
         )
 
         results["config"] = {
             "model": name,
             "model_args": dataclasses.asdict(self.neox_args),
+            "num_fewshot": num_fewshot,
             "batch_size": self.batch_size,
             "device": str(self.device),
-            "use_cache": use_cache,
+            "no_cache": not use_cache,
             "limit": limit,
             "bootstrap_iters": bootstrap_iters,
+            "description_dict": description_dict,
         }
-        # results["git_hash"] = utils.get_git_commit_hash()
-
-        print(results.keys())
-        # print(f"{results.keys():.6f}")
-        # for task_name in task_dict.keys():
-        #     if "alias" in results["results"][task_name]:
-        #         results["results"][task_name].pop("alias")
 
         if was_training:
-            self.model.train()
-        # self.model.micro_batches = in_micro_batches
+            self.model_lm.train()
+        self.model_lm.micro_batches = in_micro_batches
         return results
 
 

@@ -1,3 +1,3 @@
 {
-   "load": 'none'
+   "load": '/fsx/vox781/logs/GPT_experts-1-topk-1-layers24-heads-32-base-moe/1a3669989885bf591a4daea9f6d0504d/master-0-1a3669989885bf591a4daea9f6d0504d/checkpoints'
 }

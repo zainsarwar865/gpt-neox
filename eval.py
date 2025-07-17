@@ -30,17 +30,21 @@ from pprint import pprint
 from datetime import datetime
 import json
 import torch
+import datasets
 
 
 def main(input_args=None, overwrite_values=None):
+    # manually set the master port
+    import time
+    import random
+    # os.environ["MASTER_PORT"] = str(10000 + int(random.randint(0, 10000)))
     model, neox_args = setup_for_inference_or_eval(
         use_cache=False, input_args=input_args, overwrite_values=overwrite_values
     )
-
-    print_rank_0(neox_args.eval_tasks)
-
-    all_results = []
-    for x in neox_args.eval_tasks:
+    # print_rank_0(neox_args.eval_tasks)
+    eval_tasks = ['winogrande', 'hellaswag', 'openbookqa', 'arc_challenge', 'arc_easy', 'piqa' ]
+    print_rank_0(eval_tasks)
+    for x in eval_tasks:
         print_rank_0('Running task:', x)
         results = run_eval_harness(
             model,
@@ -50,54 +54,31 @@ def main(input_args=None, overwrite_values=None):
             bootstrap_iters=10000,
             num_fewshot=5,
         )
-        all_results.append(results)
+
         print_rank_0("After task:", x)
-        torch.distributed.barrier()
-
-    
-
-
-
-    if neox_args.rank == 0:
-
-        for results in all_results:
-            init_wandb(neox_args=neox_args)
-
+        try:
+            print_rank_0(results["results"][x])
+        except:
+            print_rank_0(results)
+        
+        # Save results immediately for each task
+        if neox_args.rank == 0:
             eval_name = list(results["results"].keys())[0]
-
-
-            # log to wandb
-            for k, v in results["results"].items():
-                if isinstance(v, dict):
-                    for k2, v2 in v.items():
-                        k3 = "_".join([k, k2])
-                        tb_wandb_log(
-                            f"eval/{k3}",
-                            v2,
-                            neox_args.iteration,
-                            use_wandb=neox_args.use_wandb,
-                        )
-                else:
-                    tb_wandb_log(
-                        f"eval/{k}",
-                        v,
-                        neox_args.iteration,
-                        use_wandb=neox_args.use_wandb,
-                    )
-
-
-
-            for key in ['results',]:# 'configs', 'versions', 'n-shot', 'git_hash']:
-                print(key)
-                pprint(results[key])
-            # pprint(results)
+            print('results')
+            pprint(results['results'])
+            exp_tag = neox_args.load.split('/')[-1]
+            eval_results_dir = f'eval_results_8c1' 
+            os.makedirs(eval_results_dir, exist_ok=True)
             results_path = (
-                f'eval_results_{eval_name}_{datetime.now().strftime("%m-%d-%Y-%H-%M-%S")}.json'
+                f'{eval_results_dir}/{eval_name}_{exp_tag}.json'
             )
+            print(f"Saving results to {results_path}")
             if neox_args.eval_results_prefix:
                 results_path = f"{neox_args.eval_results_prefix}_{results_path}"
             with open(results_path, "w") as f:
                 json.dump(results, f, indent=4)
+                
+        torch.distributed.barrier()
 
 
 if __name__ == "__main__":

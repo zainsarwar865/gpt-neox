@@ -396,14 +396,15 @@ def forward_step(
     ):
         loss_mask = loss_mask[:, : neox_args.curriculum_seqlen].contiguous()
         labels = labels[:, : neox_args.curriculum_seqlen].contiguous()
-    # print(outputs, type(outputs))
+    
+    (outputs, type(outputs))
     loss = cross_entropy(
         outputs, (labels, loss_mask), _fp16=neox_args.fp16_lm_cross_entropy
     )
     if neox_args.memory_profiling:
         torch.cuda.nvtx.range_pop()
     if return_logits:
-        return loss, outputs
+        return loss, outputs[0]
     return loss
 
 

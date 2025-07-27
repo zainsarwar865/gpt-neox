@@ -16,7 +16,13 @@
 # limitations under the License.
 
 """Evaluation tasks - modified from https://github.com/EleutherAI/lm-evaluation-harness"""
+
+
+
 import os
+import datasets
+
+
 import sys
 
 sys.path.append(
@@ -30,7 +36,8 @@ from pprint import pprint
 from datetime import datetime
 import json
 import torch
-import datasets
+
+
 
 
 def main(input_args=None, overwrite_values=None):
@@ -42,7 +49,8 @@ def main(input_args=None, overwrite_values=None):
         use_cache=False, input_args=input_args, overwrite_values=overwrite_values
     )
     # print_rank_0(neox_args.eval_tasks)
-    eval_tasks = ['winogrande', 'hellaswag', 'openbookqa', 'arc_challenge', 'arc_easy', 'piqa' ]
+    eval_tasks = ['truthfulqa_mc1', 'pubmedqa', 'arc_easy', 'sciq','winogrande', 'cola', 'hellaswag', 'mmlu','lambada_openai', 'arc_challenge', 'openbookqa', 'boolq', 'mnli']
+
     print_rank_0(eval_tasks)
     for x in eval_tasks:
         print_rank_0('Running task:', x)
@@ -67,7 +75,7 @@ def main(input_args=None, overwrite_values=None):
             print('results')
             pprint(results['results'])
             exp_tag = neox_args.load.split('/')[-1]
-            eval_results_dir = f'eval_results_8c1' 
+            eval_results_dir = f'GGPT_experts-1-topk-1-layers24-heads-32-lora' 
             os.makedirs(eval_results_dir, exist_ok=True)
             results_path = (
                 f'{eval_results_dir}/{eval_name}_{exp_tag}.json'

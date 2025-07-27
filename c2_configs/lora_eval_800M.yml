@@ -16,7 +16,7 @@
   "pipe_parallel_size": 0, 
   "model_parallel_size": 1,
   "gradient_accumulation_steps": 1,
-  "train_micro_batch_size_per_gpu": 48,   
+  "train_micro_batch_size_per_gpu": 4,   
   "data_impl": "mmap",
   "num_layers": 8,
   "hidden_size": 2048,
@@ -50,7 +50,7 @@
   "timescale": 1.0,
   "warmup": 0.001,
   "zero_optimization": {
-    "stage": 1,
+    "stage": 0,
     "allgather_partitions": True,
     "allgather_bucket_size": 500000000,
     "overlap_comm": True,

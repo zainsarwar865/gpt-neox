@@ -80,6 +80,7 @@ class RotaryEmbedding(torch.nn.Module):
         if seq_len is None:
             seq_len = x.shape[seq_dim]
 
+    
         assert seq_len <= self.max_seq_len
 
         if seq_len != self.max_seq_len:

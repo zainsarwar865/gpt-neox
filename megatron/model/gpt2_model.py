@@ -59,6 +59,27 @@ def gpt2_attention_mask_func(attention_scores, ltor_mask):
     return attention_scores
 
 
+
+# def cross_entropy(output, labels, _fp16=False):
+#     """From pretrain_gpt2:forward_step()"""
+#     """
+#     if self.fp16_lm_cross_entropy:
+#         assert output.dtype == torch.half
+#         loss = mpu.vocab_parallel_cross_entropy(output, labels)
+#     else:
+#         loss = mpu.vocab_parallel_cross_entropy(output.float(), labels)
+#         return loss
+#     """
+#     labels, loss_mask = labels[0], labels[1]
+#     if _fp16:
+#         assert output.dtype == torch.half and loss_mask.dtype == torch.half
+#         losses = mpu.vocab_parallel_cross_entropy(output.contiguous(), labels)
+#     else:
+#         losses = mpu.vocab_parallel_cross_entropy(output[0].float().contiguous(), labels)
+#     loss_mask = loss_mask.view(-1)
+#     loss = torch.sum(losses.view(-1) * loss_mask) / loss_mask.sum()
+#     return loss
+
 def cross_entropy(output, labels, _fp16=False):
     """From pretrain_gpt2:forward_step()"""
     """

@@ -16,7 +16,19 @@
 # limitations under the License.
 
 """Evaluation tasks - modified from https://github.com/EleutherAI/lm-evaluation-harness"""
+
+
+
 import os
+import datasets
+
+os.environ['HF_HOME'] = '/fsx/vox781/datasets/hf_evals/'
+os.environ['HF_HUB_CACHE'] = '/fsx/vox781/datasets/hf_evals/'
+os.environ['HF_ASSETS_CACHE'] = '/fsx/vox781/datasets/hf_evals/'
+os.environ['HF_HUB_OFFLINE'] = '1'
+os.environ['HF_DATASETS_CACHE'] = '/fsx/vox781/datasets/hf_evals/'
+
+
 import sys
 
 sys.path.append(
@@ -30,7 +42,8 @@ from pprint import pprint
 from datetime import datetime
 import json
 import torch
-import datasets
+
+
 
 
 def main(input_args=None, overwrite_values=None):
@@ -42,7 +55,8 @@ def main(input_args=None, overwrite_values=None):
         use_cache=False, input_args=input_args, overwrite_values=overwrite_values
     )
     # print_rank_0(neox_args.eval_tasks)
-    eval_tasks = ['winogrande', 'hellaswag', 'openbookqa', 'arc_challenge', 'arc_easy', 'piqa' ]
+    eval_tasks = ['pubmedqa', 'arc_easy', 'sciq', 'truthfulqa', 'winogrande', 'squadv2',  'cola', 'hellaswag', 'mmlu','lambada_openai', 'arc_challenge', 'openbookqa', 'boolq', 'mmlu_pro', 'mnli']
+    # eval_tasks = ['hellaswag']
     print_rank_0(eval_tasks)
     for x in eval_tasks:
         print_rank_0('Running task:', x)

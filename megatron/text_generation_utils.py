@@ -53,6 +53,7 @@ def get_batch(neox_args, context_tokens: torch.Tensor):
 
 
 def pad_batch(context_tokens: List[List[int]], pad_id: int, pad_len: int):
+    # print_rank_0("PAD IS IS ", pad_id)
     """
     pads context lengths in context_tokens with pad_id to equal neox_args.seq_length,
     and returns the padded batch and the new lengths.
@@ -230,7 +231,8 @@ def stream_tokens(
     # pad batch in order to allow conversion to tensor
     context_tokens, context_lengths = pad_batch(
         copy.deepcopy(context_tokens),
-        pad_id=neox_args.tokenizer.eod,
+        #pad_id=neox_args.tokenizer.eod,
+        pad_id=128000,
         pad_len=neox_args.seq_length,
     )
 
@@ -260,6 +262,7 @@ def stream_tokens(
 
     # set variables
     eos_token_id = eos_token_id or neox_args.tokenizer.eod
+    eos_token_id = 128000   
     maximum_tokens = maximum_tokens or (
         neox_args.seq_length - token_generation_start_index.max().item() - 1
     )
@@ -313,7 +316,11 @@ def stream_tokens(
                     attention_mask,  # attention_mask
                 )
 
-                logits = forward_model(model, model_inputs, neox_args.is_pipe_parallel)
+                logits = forward_model(model, model_inputs, neox_args.is_pipe_parallel)[0]
+                # print_rank_0("logits.shape", logits.shape)
+                # print_rank_0("logits[0]", logits[0].shape)
+                # print_rank_0("logits[1]", logits[1])
+                # exit()
                 if logits is not None:  # if pipe parallel, not all ranks return logits
                     generated_token_logits = (
                         logits[:, -1].view(batch_size, -1).contiguous()
@@ -369,6 +376,7 @@ def stream_tokens(
             )
 
             # determine if state has finished for each batch item
+            
             state_done = (
                 generated_tokens == eos_token_id
             ).byte() & state_started.byte()  # check which batch items produce an eos_token in the current iteration
@@ -440,6 +448,10 @@ def generate_samples_from_prompt(
         text = [text]
 
     input_count = len(text)
+
+    # print_rank_0("input_count:", input_count)
+    # print_rank_0("eos_token_id", eos_token_id)
+
     input_pos = 0
 
     # generate completions
@@ -453,12 +465,14 @@ def generate_samples_from_prompt(
             terminate_runs = 1
         else:
             raw_text = text[input_pos]
+            # print_rank_0("raw_text", raw_text)
             input_pos += 1
 
             if raw_text == "":
                 context_tokens = [eos_token_id]
             else:
                 context_tokens = neox_args.tokenizer.tokenize(raw_text)
+                # print_rank_0("context_tokens", context_tokens)
             context_length = len(context_tokens)
 
             if context_length >= (neox_args.seq_length // 2):
@@ -476,6 +490,10 @@ def generate_samples_from_prompt(
         terminate_runs = broadcast_terminate_signal(terminate_runs)
         if terminate_runs == 1:
             return generated_texts
+
+
+        print_rank_0("context_tokens", context_tokens)
+        print_rank_0("context_tokens[]", [context_tokens])
 
         for (
             batch_context_tokens,
@@ -612,6 +630,13 @@ def generate_samples_input_from_file(
             )
 
     print_rank_0("generate_samples_input_from_file() generating...")
+    # print("Temperature : ", temperature)
+    # print("eos_token_id", eos_token_id)
+    # print("maximum_tokens", maximum_tokens)
+    # print("top_p", top_p)
+    # print("top_k", top_k)
+
+
     generated_texts = generate_samples_from_prompt(
         neox_args=neox_args,
         model=model,
@@ -628,7 +653,7 @@ def generate_samples_input_from_file(
         with open(output_file, "w") as f_out:
             for item in generated_texts:
                 f_out.write(json.dumps(item) + "\n")
-    print_rank_0("generate_samples_input_from_file() done")
+    print_rank_0("generate_samples_input_from_file() done", output_file)
     return generated_texts
 
 

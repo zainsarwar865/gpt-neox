@@ -1,4 +1,5 @@
-# Copyright (c) 2024, EleutherAI
+
+# Copyright (c) 2025, EleutherAI
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,21 +57,20 @@ class EvalHarnessAdapter(HFLM):
         self.neox_args = neox_args
         self.tokenizer = neox_args.tokenizer
         self._device = torch.device(f"cuda:{neox_args.local_rank}")
-        # self._eot_token_id = neox_args.tokenizer.eod_id
+        #self._eot_token_id = neox_args.tokenizer.eod_id
         self._eot_token_id = 128001
         self._max_length = neox_args.max_position_embeddings
-        self._max_gen_toks = 2048
+        self._max_gen_toks = 4096
         self._vocab_size = neox_args.padded_vocab_size
-        # print_rank_0("self.tokenizer",self.tokenizer )
-        # print_rank_0("self.eot_token_id",self._eot_token_id )
-        # print_rank_0("self._max_length",self._max_length )
-        # print_rank_0("self._vocab_size",self._vocab_size )
+
         # parallelism args:
         self.is_main = neox_args.rank == 0
         self.is_local_main = neox_args.local_rank == 0
         self.is_model_parallel = neox_args.model_parallel_size > 1
-        self.is_pipe_parallel = False #self.model.is_pipe_parallel
-        self.is_data_parallel = False #self.model.is_data_parallel
+        # self.is_pipe_parallel = self.model.is_pipe_parallel
+        # self.is_data_parallel = self.model.is_data_parallel
+        self.is_pipe_parallel = False
+        self.is_data_parallel = False
         self.is_last_stage = (
             True if not self.is_pipe_parallel else model.is_last_stage()
         )  # only the last stage of the pipeline model will receive the logits
@@ -86,9 +86,6 @@ class EvalHarnessAdapter(HFLM):
         # we need to patch tokenizer methods, because lm_eval uses them internally:
         self.tokenizer.encode = self.tokenizer.tokenize
         self.tokenizer.decode = self.tokenizer.detokenize
-        # print_rank_0("self.tokenizer.tokenize", self.tokenizer.tokenize)
-        # print_rank_0("self.tokenizer.detokenize", self.tokenizer.detokenize)
-
         self._forward_step_fn = partial(
             forward_step_fn, neox_args=neox_args, timers=None, return_logits=True
         )
@@ -96,7 +93,9 @@ class EvalHarnessAdapter(HFLM):
             generate_samples_from_prompt,
             neox_args=neox_args,
             model=model,
+
         )
+
         self.task_manager = tasks.TaskManager()
 
     @property
@@ -266,12 +265,12 @@ class EvalHarnessAdapter(HFLM):
                     inps.append(inp.unsqueeze(0))
                     contlens.append(cont)
                     inplens.append(inplen)
+
                 logits = self._model_call(torch.cat(inps, dim=0))
                 res_len += len(chunk)
 
                 if logits is not None:
-                    multi_logits = F.log_softmax(logits, dim=-1)
-                    
+                    multi_logits = F.log_softmax(logits, dim=-1)  # [batch, seq, vocab]
                     for (cache_key, _, _), logits, inp, inplen, cont_toks in zip(
                         chunk, multi_logits, inps, inplens, contlens
                     ):
@@ -287,7 +286,6 @@ class EvalHarnessAdapter(HFLM):
                             .to(multi_logits.device)
                         )
                         max_equal = (greedy_tokens == cont_toks).all()
-                        
                         logits = torch.gather(
                             logits, 2, cont_toks.unsqueeze(-1)
                         ).squeeze(
@@ -366,7 +364,6 @@ class EvalHarnessAdapter(HFLM):
         Gather logits from all data parallel ranks
         """
         if logits is not None:
-            # logits = logits[0]
             tensor_list = [torch.zeros_like(logits) for _ in range(self.dp_world_size)]
             torch.distributed.all_gather(
                 tensor_list, logits, group=mpu.get_data_parallel_group()
@@ -384,8 +381,9 @@ class EvalHarnessAdapter(HFLM):
             # need these flags to stop deepspeed pipe parallel from hanging
             self.model.first_output_send = True
             self.model.pipe_recv_buf = None
-        # logits = self._forward_step_fn(model=self.model, data_iterator=inps)
-        _, logits = self._forward_step_fn(model=self.model, data_iterator=inps)
+
+        _ , logits = self._forward_step_fn(model=self.model, data_iterator=inps)
+
         # gather outputs from all dp ranks:
         logits = self._dp_gather(logits)
 
@@ -414,35 +412,35 @@ class EvalHarnessAdapter(HFLM):
         # in_micro_batches = (
         #     self.model.micro_batches
         # )  # store input microbatches - we need to set to 1 during eval, but want to return to its original value after
-        # self.model.micro_batches = 1
+        self.model.micro_batches = 1
         if eval_tasks is None:
             eval_tasks = [
-                # "lambada",
-                # "piqa",
-                # "hellaswag",
-                # "winogrande",
-                # "mathqa",
-                # "pubmedqa",
-                # "triviaqa",
-                "hellaswag"
+                "lambada",
+                "piqa",
+                "hellaswag",
+                "winogrande",
+                "mathqa",
+                "pubmedqa",
+                "triviaqa",
             ]
 
         # register all the default tasks bundled with lm-evaluation-harness repository
-        self.task_manager.initialize_tasks()
-
+        # tasks.initialize_tasks()
+        # self.task_manager.initialize_tasks()
+        # print_rank_0("TASKS", self.task_manager.all_tasks)
 
         # Returns a list containing all values of the task registry that
         # match at least one of the patterns
-        # import fnmatch
+        import fnmatch
 
-        # def pattern_match(patterns, source_list):
-        #     task_names = set()
-        #     for pattern in patterns:
-        #     for matching in fnmatch.filter(source_list, pattern):
-        #         task_names.add(matching)
-        # #     return list(task_names)
-        # # import pdb; pdb.set_trace()
-        eval_tasks = self.task_manager.match_tasks(eval_tasks)
+        def pattern_match(patterns, source_list):
+            task_names = set()
+            for pattern in patterns:
+                for matching in fnmatch.filter(source_list, pattern):
+                    task_names.add(matching)
+            return list(task_names)
+
+        eval_tasks = pattern_match(eval_tasks, self.task_manager.all_tasks)
         print_rank_0(f"Found tasks: {eval_tasks}")
 
         assert len(eval_tasks) > 0, "Must run at least one task"
@@ -478,38 +476,36 @@ class EvalHarnessAdapter(HFLM):
                 # TODO: Append a subset of `neox_args` to the cache database
                 # name arg to distinguish model runs that use different configurations.
             )
-        exit()
+
         # from simple_evaluate:
         # override fewshot values for all tasks we can
-        # for task_name in task_dict.keys():
-            # task_obj = task_dict[task_name]
-            # import pdb; pdb.set_trace()
-            # if type(task_obj) == tuple:
-            #     group, task_obj = task_obj
-            #     if task_obj is None:
-            #         continue
+        for task_name in task_dict.keys():
+            task_obj = task_dict[task_name]
+            if type(task_obj) == tuple:
+                group, task_obj = task_obj
+                if task_obj is None:
+                    continue
 
-            # config = task_obj._config
+            config = task_obj._config
 
-            # if num_fewshot is not None:
-            #     if config["num_fewshot"] == 0:
-            #         utils.eval_logger.info(
-            #             f"num_fewshot has been set to 0 for {task_name} in its config. Manual configuration will be ignored."
-            #         )
-            #     else:
-            #         default_num_fewshot = config["num_fewshot"]
-            #         if not default_num_fewshot:
-            #             utils.eval_logger.warning(
-            #                 f"Overwriting default num_fewshot of {task_name} from {default_num_fewshot} to {num_fewshot}"
-            #             )
+            if num_fewshot is not None:
+                if config["num_fewshot"] == 0:
+                    print_rank_0(
+                        f"num_fewshot has been set to 0 for {task_name} in its config. Manual configuration will be ignored."
+                    )
+                else:
+                    default_num_fewshot = config["num_fewshot"]
+                    if not default_num_fewshot:
+                        print_rank_0(
+                            f"Overwriting default num_fewshot of {task_name} from {default_num_fewshot} to {num_fewshot}"
+                        )
 
-            #         task_obj._config["num_fewshot"] = num_fewshot
+                    task_obj._config["num_fewshot"] = num_fewshot
 
         results = evaluator.evaluate(
             lm=lm,
             task_dict=task_dict,
-            limit=None,  # limit,
-            # limit=10,
+            limit=10,  # limit,
             bootstrap_iters=bootstrap_iters,
             log_samples=False,
         )
@@ -526,10 +522,9 @@ class EvalHarnessAdapter(HFLM):
         # results["git_hash"] = utils.get_git_commit_hash()
 
         print(results.keys())
-        # print(f"{results.keys():.6f}")
-        # for task_name in task_dict.keys():
-        #     if "alias" in results["results"][task_name]:
-        #         results["results"][task_name].pop("alias")
+        for task_name in task_dict.keys():
+            if "alias" in results["results"][task_name]:
+                results["results"][task_name].pop("alias")
 
         if was_training:
             self.model.train()

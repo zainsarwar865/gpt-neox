@@ -1,1 +1,0 @@
-../../deepy.py ../../eval.py ../base_eval.yml ../data_c1.yml ../eval_configs/base_ckpt.yml

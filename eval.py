@@ -75,7 +75,7 @@ def main(input_args=None, overwrite_values=None):
             print('results')
             pprint(results['results'])
             exp_tag = neox_args.load.split('/')[-1]
-            eval_results_dir = f'GGPT_experts-1-topk-1-layers24-heads-32-lora' 
+            eval_results_dir = f'GPT_experts-8-topk-1-layers8-heads-32-lora' 
             os.makedirs(eval_results_dir, exist_ok=True)
             results_path = (
                 f'{eval_results_dir}/{eval_name}_{exp_tag}.json'

@@ -369,7 +369,7 @@ class TopKTokenChoiceRouter(torch.nn.Module):
             expert_indices_ft = expert_indices.flatten()
             tokens_per_expert = megablocks.ops.histogram(expert_indices_ft, self.num_experts)
 
-        expert_weights = self.apply_load_balancing_loss(scores, tokens_per_expert, activation=expert_weights)
+        #expert_weights = self.apply_load_balancing_loss(scores, tokens_per_expert, activation=expert_weights)
         # expert_weights probability mass won't add up to 1 because we took
         # the topk scores from the softmax
         # TODO: placeholder for moe_normalize_expert_weights if necessary

@@ -1,0 +1,41 @@
+{
+  "train-data-paths": [
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN-2023-14/CC-MAIN_2023_14_text_document,
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN_2023_50/CC-MAIN_2023_50_text_document,
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN_2023_23/CC-MAIN_2023_23_text_document,
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN_2023_40/CC-MAIN_2023_40_text_document,
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN-2023-06/CC-MAIN_2023_06_text_document,
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN-2022-49/CC-MAIN_2022_49_text_document,
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN_2024_10/CC-MAIN_2024_10_text_document,
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN-2022-33/CC-MAIN_2022_33_text_document,
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN-2022-40/CC-MAIN_2022_40_text_document
+
+  ],
+  "train-data-weights":[
+      1.0,
+      1.0,
+      1.0,
+      1.0, 
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+  ],
+  "test-data-paths": [
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN_2024_10/CC-MAIN_2024_10_text_document,
+  ],
+  "test-data-weights":[
+      1.0 
+  ],
+  "valid-data-paths": [
+    /fsx/vox781/datasets/fineweb_edu/CC-MAIN_2024_10/CC-MAIN_2024_10_text_document,
+  ],
+  "valid-data-weights":[
+      1.0 
+  ],
+  "vocab_file": "/fsx/vox781/checkpoints/tokenizers/tokenizer.json",
+  "base_dir": "/fsx/vox781/logs/",
+  "launcher": "torchrun"
+  
+}

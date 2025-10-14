@@ -66,38 +66,10 @@ class ParallelDroplessMLP(torch.nn.Module):
         else:
             raise KeyError(neox_args.mlp_type)
 
-    def indices_and_bins(self, top_expert: torch.Tensor):
-        # Sort the expert ids to produce the scatter/gather
-        # indices for the permutation.
-        #
-        # TODO(tgale): Is it worth doing this conversion to 32-bit
-        # prior? Could we place the `torch.max` operation to return
-        # 32-bit expert indices?
-        top_expert = top_expert.int()
-        bin_ids, indices = megablocks.ops.sort(top_expert, self.sort_end_bit)
-
-        # Histogram the expert ids to identify the number of
-        # tokens routed to each expert.
-        #
-        # TODO(tgale): Does the sorted data produce a more favorable
-        # data distribution for histogram? Or is the op parallelism
-        # worth more?
-        tokens_per_expert = megablocks.ops.histogram(top_expert, self.num_experts)
-
-        # Calculate the bin bounds for the sorted tokens.
-        bins = megablocks.ops.inclusive_cumsum(tokens_per_expert, 0)
-        bins = bins.view(1) if not len(bins.size()) else bins
-        return indices, bin_ids, bins, tokens_per_expert
-
+    
     def permute_and_compute(
         self,
         input_: torch.Tensor,
-        tokens_per_expert: torch.Tensor,
-        indices: torch.Tensor,
-        bin_ids: torch.Tensor,
-        expert_weights: torch.Tensor,
-        bins: torch.Tensor,
-        top_k: int,
     ):
         """
         grouped_permute_and_compute
@@ -132,41 +104,42 @@ class ParallelDroplessMLP(torch.nn.Module):
         input_ = input_.view(-1, input_.shape[-1])
 
         ## repeat each token top_k times and shuffle tokens to group them by their respective experts
-        input_ = megablocks.ops.gather(input_, indices, bin_ids, bins, top_k)
+        # input_ = megablocks.ops.gather(input_, indices, bin_ids, bins, top_k)
 
         # get tokens routed to this rank's experts only
-        input_parallel = copy_to_expert_model_parallel_region(input_, tokens_per_expert)
+        # input_parallel = copy_to_expert_model_parallel_region(input_, tokens_per_expert)
 
         # get tokens_per_expert for this rank's experts only
         # with torch.no_grad():
-        local_tokens_per_expert = get_expert_token_counts_for_rank(tokens_per_expert)
+        # local_tokens_per_expert = get_expert_token_counts_for_rank(tokens_per_expert)
         # if torch.cuda.current_device() == 0:
         #     print(f"{torch.cuda.current_device()}: tokens_per_expert {local_tokens_per_expert}")
 
         # Perform the expert computation for this rank's experts
-        output_parallel = self.mlp(input_parallel, local_tokens_per_expert)
+        input_ = self.mlp(input_)
 
         # all gather masked results from across Tensor parallel ranks here and cat them together
         # this will replicate the calculation of each expert across all ranks
         # NOTE: this combined all_gather and torch.cat operation is performed by gather_from_model_parallel_region(output_parallel)
         # Unlike ColumnParallelLinear, it is nonsensical in the MoE world
         # to optionally return the output_parallel result...we still have to scatter the tokens back to their original positions
-        output = gather_from_expert_model_parallel_region(
-            output_parallel,
-            tokens_per_expert,
-        )
+        # output = gather_from_expert_model_parallel_region(
+        #     output_parallel,
+        #     tokens_per_expert,
+        # )
 
         # Un-route the data for the MoE output
-        return megablocks.ops.scatter(
-            output,
-            indices,
-            bin_ids,
-            expert_weights,
-            bins,
-            top_k,
-        )
+        # return megablocks.ops.scatter(
+        #     output,
+        #     indices,
+        #     bin_ids,
+        #     expert_weights,
+        #     bins,
+        #     top_k,
+        # )
+        return input_
 
-    def forward(self, x, expert_weights, expert_indices):
+    def forward(self, x):
         """
         grouped_forward_once
 
@@ -178,23 +151,17 @@ class ParallelDroplessMLP(torch.nn.Module):
         in_shape = x.size()
 
         # both are now (sl * bs * top_k)
-        expert_weights = expert_weights.flatten()
-        expert_indices = expert_indices.flatten()
+        # expert_weights = expert_weights.flatten()
+        # expert_indices = expert_indices.flatten()
 
-        with torch.no_grad():
-            indices, bin_ids, bins, tokens_per_expert = self.indices_and_bins(
-                expert_indices
-            )
+        # with torch.no_grad():
+        #     indices, bin_ids, bins, tokens_per_expert = self.indices_and_bins(
+        #         expert_indices
+        #     )
 
 
         x = self.permute_and_compute(
             x,
-            tokens_per_expert,
-            indices,
-            bin_ids,
-            expert_weights,
-            bins,
-            self.top_k,
         )
 
         # restore input shape
@@ -223,24 +190,24 @@ class ParallelDroplessMoE(torch.nn.Module):
     ):
         super(ParallelDroplessMoE, self).__init__()
 
-        if neox_args.moe_router_type == "sinkhorn":
-            self.router = SinkhornRouter(
-                neox_args,
-                init_method,
-            )
-        elif neox_args.moe_router_type == "topk":
-            self.router = TopKTokenChoiceRouter(
-                neox_args,
-                init_method,
-            )
+        # if neox_args.moe_router_type == "sinkhorn":
+        #     self.router = SinkhornRouter(
+        #         neox_args,
+        #         init_method,
+        #     )
+        # elif neox_args.moe_router_type == "topk":
+        #     self.router = TopKTokenChoiceRouter(
+        #         neox_args,
+        #         init_method,
+        #     )
 
-        elif neox_args.moe_router_type == "sparsemixer":
-            self.router = SparseMixerRouter(
-                neox_args,
-                init_method,
-            )
-        else:
-            raise ValueError(f"Invalid MoE Router type {neox_args.moe_router_type}")
+        # elif neox_args.moe_router_type == "sparsemixer":
+        #     self.router = SparseMixerRouter(
+        #         neox_args,
+        #         init_method,
+        #     )
+        # else:
+        #     raise ValueError(f"Invalid MoE Router type {neox_args.moe_router_type}")
 
         self.experts = ParallelDroplessMLP(
             neox_args,
@@ -266,7 +233,7 @@ class ParallelDroplessMoE(torch.nn.Module):
         x = cast_if_autocast_enabled(x)
 
         # Compute the expert scores and assignments
-        expert_weights, expert_indices = self.router(x)
+        #expert_weights, expert_indices = self.router(x)
 
         # return value should be
-        return self.experts(x, expert_weights, expert_indices), None
+        return self.experts(x), None

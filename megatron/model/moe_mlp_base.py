@@ -210,8 +210,9 @@ class ParallelGroupedMLP(torch.nn.Module):
             return w
         return scale_gradient(w, self.gradient_scale)
 
-    def forward(self, x: torch.Tensor, tokens_per_expert: torch.Tensor):
-        grouped_gemm_batch_sizes = tokens_per_expert.cpu().to(torch.long)
+    def forward(self, x: torch.Tensor):
+        #grouped_gemm_batch_sizes = tokens_per_expert.cpu().to(torch.long)
+        grouped_gemm_batch_sizes = torch.tensor([x.shape[0]]).cpu().to(torch.long)
         w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
 
         # Re-shape the weights for the grouped GEMMs

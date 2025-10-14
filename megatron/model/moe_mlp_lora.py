@@ -20,7 +20,7 @@ from megatron.model.activations import get_activation, swish
 from megatron.mpu.layers import _initialize_affine_weight_gpu
 from megatron.mpu.initialize import get_model_parallel_world_size
 from megatron.mpu.utils import divide
-from megatron.model.router import TopKTokenChoiceRouterLoRa
+from megatron.model.router import TopKTokenChoiceRouterLoRa, TopKTokenChoiceRouter
 from megatron.neox_arguments.arguments import NeoXArgs
 from megatron.mpu import copy_to_expert_model_parallel_region
 from megatron.mpu import get_expert_token_counts_for_rank
@@ -29,7 +29,7 @@ from megatron.model.init_functions import init_method_zeros
 import numpy as np
 import megablocks.ops
 from megablocks import grouped_gemm_util as gg
-
+from megatron import mpu
 
 class ScaleGradient(torch.autograd.Function):
     @staticmethod
@@ -144,13 +144,6 @@ class ParallelGroupedLoRas(torch.nn.Module):
 
             # GG 
             #return gg.ops.gmm(x, w1_AB, grouped_gemm_batch_sizes)
-        elif layer == 2:
-            w2_A, w2_B = (self.scale_grad(self.w2_A), self.scale_grad(self.w2_B))
-            w2_A = w2_A.view(self.total_loras, self.per_expert_ff_dim, self.lora_rank)
-            w2_B = w2_B.view(self.total_loras, self.lora_rank, self.hidden_size)
-            #w2_AB = torch.einsum('ijk,ikm->ijm', w2_A, w2_B)
-            return gg.ops.gmm(gg.ops.gmm(x, w2_A, grouped_gemm_batch_sizes), w2_B, grouped_gemm_batch_sizes)
-            #return gg.ops.gmm(x, w2_AB, grouped_gemm_batch_sizes)
         else:
             print(f"No layer {layer} found")
         
@@ -179,7 +172,7 @@ class ParallelGroupedMLP(torch.nn.Module):
         self.experts_per_rank = divide(self.num_experts, world_size)
 
         self.hidden_size = neox_args.hidden_size
-        self.LoRaRouter = TopKTokenChoiceRouterLoRa(neox_args, init_method)
+        self.LoRaRouter = TopKTokenChoiceRouter(neox_args, init_method)
 
 
         self.num_loras = neox_args.moe_lora_experts
@@ -210,30 +203,50 @@ class ParallelGroupedMLP(torch.nn.Module):
         self.num_rows_per_rank = self.experts_per_rank * per_expert_ff_dim
 
         # input
-        self.w1 = torch.nn.Parameter(
-            torch.empty(
-                self.num_rows_per_rank,
-                self.hidden_size,
-                device=torch.cuda.current_device(),
-                dtype=neox_args.params_dtype,
-            )
-        )
-        _initialize_affine_weight_gpu(
-            self.w1, init_method, partition_dim=0, stride=stride
-        )
+        # self.w1 = torch.nn.Parameter(
+        #     torch.empty(
+        #         self.num_rows_per_rank,
+        #         self.hidden_size,
+        #         device=torch.cuda.current_device(),
+        #         dtype=neox_args.params_dtype,
+        #     )
+        # )
+        # _initialize_affine_weight_gpu(
+        #     self.w1, init_method, partition_dim=0, stride=stride
+        # )
 
         # output
-        self.w2 = torch.nn.Parameter(
-            torch.empty(
-                self.num_rows_per_rank,
-                self.hidden_size,
-                device=torch.cuda.current_device(),
-                dtype=neox_args.params_dtype,
-            )
+        # self.w2 = torch.nn.Parameter(
+        #     torch.empty(
+        #         self.num_rows_per_rank,
+        #         self.hidden_size,
+        #         device=torch.cuda.current_device(),
+        #         dtype=neox_args.params_dtype,
+        #     )
+        # )
+        # _initialize_affine_weight_gpu(
+        #     self.w2, output_layer_init_method, partition_dim=0, stride=stride
+        # )
+
+        self.dense_h_to_4h = mpu.ColumnParallelLinear(
+            neox_args=neox_args,
+            input_size=neox_args.hidden_size,
+            output_size=self.num_rows_per_rank,
+            gather_output=False,
+            init_method=init_method,
+            skip_bias_add=True,
         )
-        _initialize_affine_weight_gpu(
-            self.w2, output_layer_init_method, partition_dim=0, stride=stride
+        #ff_dim_in = ff_dim // 2 if self.activation_type == "geglu" else ff_dim
+        # Project back to h.
+        self.dense_4h_to_h = mpu.RowParallelLinear(
+            neox_args=neox_args,
+            input_size=self.num_rows_per_rank,
+            output_size=neox_args.hidden_size,
+            input_is_parallel=True,
+            init_method=output_layer_init_method,
+            skip_bias_add=True,
         )
+
 
 
         # TODO: why do we need this? was in original megablocks code
@@ -242,13 +255,11 @@ class ParallelGroupedMLP(torch.nn.Module):
             self.gradient_scale = 1 / world_size
 
 
-
-    def generate_offsets(self, tokens_per_expert, num_loras):
-        cum_lenghts = torch.cumsum(tokens_per_expert, dim=0)
-        indices = torch.arange(cum_lenghts[-1]) + 1
-        segments = (torch.searchsorted(cum_lenghts, indices, right=False) * num_loras).to(device=torch.cuda.current_device())
-
-        return segments
+    # def generate_offsets(self, tokens_per_expert, num_loras):
+    #     cum_lenghts = torch.cumsum(tokens_per_expert, dim=0)
+    #     indices = torch.arange(cum_lenghts[-1]) + 1
+    #     segments = (torch.searchsorted(cum_lenghts, indices, right=False) * num_loras).to(device=torch.cuda.current_device())
+    #     return segments
 
 
     def indices_and_bins(self, top_expert: torch.Tensor):
@@ -320,27 +331,27 @@ class ParallelGroupedMLP(torch.nn.Module):
         ## repeat each token top_k times and shuffle tokens to group them by their respective experts
         input_x = megablocks.ops.gather(input_, indices, bin_ids, bins, top_k)
         # get tokens routed to this rank's experts only
-        input_parallel = copy_to_expert_model_parallel_region(input_x, tokens_per_expert)
+        #input_parallel = copy_to_expert_model_parallel_region(input_x, tokens_per_expert)
 
         # get tokens_per_expert for this rank's experts only
         # with torch.no_grad():
-        local_tokens_per_expert = get_expert_token_counts_for_rank(tokens_per_expert)
+        #local_tokens_per_expert = get_expert_token_counts_for_rank(tokens_per_expert)
         # if torch.cuda.current_device() == 0:
         #     print(f"{torch.cuda.current_device()}: local_tokens_per_expert {local_tokens_per_expert}, global tokens {tokens_per_expert}")
 
         # Perform the expert computation for this rank's experts
 
-        output_parallel = self.loras(input_parallel, local_tokens_per_expert, layer)
+        output = self.loras(input_x, tokens_per_expert, layer)
 
         # all gather masked results from across Tensor parallel ranks here and cat them together
         # this will replicate the calculation of each expert across all ranks
         # NOTE: this combined all_gather and torch.cat operation is performed by gather_from_model_parallel_region(output_parallel)
         # Unlike ColumnParallelLinear, it is nonsensical in the MoE world
         # to optionally return the output_parallel result...we still have to scatter the tokens back to their original positions
-        output = gather_from_expert_model_parallel_region(
-            output_parallel,
-            tokens_per_expert,
-        )
+        # output = gather_from_expert_model_parallel_region(
+        #     output_parallel,
+        #     tokens_per_expert,
+        # )
 
         # Un-route the data for the MoE output
         return megablocks.ops.scatter(
@@ -362,16 +373,16 @@ class ParallelGroupedMLP(torch.nn.Module):
 
 
 
-    def forward(self, x: torch.Tensor, tokens_per_expert: torch.Tensor):
-        grouped_gemm_batch_sizes = tokens_per_expert.cpu().to(torch.long)
-        lora_weights, lora_indices = self.LoRaRouter(x, grouped_gemm_batch_sizes)
+    def forward(self, x: torch.Tensor):
+    
+        lora_weights, lora_indices = self.LoRaRouter(x)
         # Create an offset vector
-        offset_vector = self.generate_offsets(grouped_gemm_batch_sizes, self.loras_per_rank)        
+        # offset_vector = self.generate_offsets(grouped_gemm_batch_sizes, self.loras_per_rank)        
 
 
         lora_weights = lora_weights.flatten()
         #lora_indices = lora_indices.flatten() + offset_vector.unsqueeze(-1)
-        lora_indices = lora_indices + offset_vector.unsqueeze(-1)
+        lora_indices = lora_indices #+ offset_vector.unsqueeze(-1)
         lora_indices = lora_indices.flatten()
     
         with torch.no_grad():
@@ -392,23 +403,36 @@ class ParallelGroupedMLP(torch.nn.Module):
             self.LoRaRouter.top_k,
             1,
         )
-        
-        w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
 
-        # Re-shape the weights for the grouped GEMMs
-        w1 = w1.view(self.experts_per_rank, -1, self.hidden_size)
-        w2 = w2.view(self.experts_per_rank, -1, self.hidden_size)
+
+        x, bias_parallel = self.dense_h_to_4h(x)
+
+        # [s, b, h]
+        
+        # return output, output_bias
+
+
+
+
+
+
+
+        # w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
+
+        # # Re-shape the weights for the grouped GEMMs
+        # w1 = w1.view(self.experts_per_rank, -1, self.hidden_size)
+        # w2 = w2.view(self.experts_per_rank, -1, self.hidden_size)
 
         # Compute the MLP
-        x = gg.ops.gmm(x, w1, grouped_gemm_batch_sizes, trans_b=True)
+        #x = gg.ops.gmm(x, w1, grouped_gemm_batch_sizes, trans_b=True)
         if self.args.lora_interaction_type == 'addition':          
-            scaled_x = x + x_1_loras
-            x = self.activation_func(scaled_x)
+            x = x + x_1_loras
+            x = self.activation_func(x)
         elif self.args.lora_interaction_type == 'geglu':
             x = x_1_loras * self.activation_func(x)
         else:
             raise("LoRe interaction not defined")
 
-        x = gg.ops.gmm(x, w2, grouped_gemm_batch_sizes)
-    
+        #x = gg.ops.gmm(x, w2, grouped_gemm_batch_sizes)
+        x, output_bias = self.dense_4h_to_h(x)
         return x

@@ -1,0 +1,1 @@
+../../deepy.py ../../train.py ../base-base-moe.yml ../data_c1.yml ../configs/base-base-moe_ckpt.yml

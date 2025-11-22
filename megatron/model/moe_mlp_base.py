@@ -27,6 +27,8 @@ from megatron.neox_arguments.arguments import NeoXArgs
 from megablocks import grouped_gemm_util as gg
 from liger_kernel.ops.swiglu import LigerSiLUMulFunction
 from liger_kernel.ops.geglu import LigerGELUMulFunction
+from megatron import mpu
+
 
 class ScaleGradient(torch.autograd.Function):
     @staticmethod
@@ -171,31 +173,53 @@ class ParallelGroupedMLP(torch.nn.Module):
         # number of rows per rank is the number of experts * ff dimension
         self.num_rows_per_rank = self.experts_per_rank * per_expert_ff_dim
 
-        # input
-        self.w1 = torch.nn.Parameter(
-            torch.empty(
-                self.num_rows_per_rank,
-                self.hidden_size,
-                device=torch.cuda.current_device(),
-                dtype=neox_args.params_dtype,
-            )
+        # # input
+        # self.w1 = torch.nn.Parameter(
+        #     torch.empty(
+        #         self.num_rows_per_rank,
+        #         self.hidden_size,
+        #         device=torch.cuda.current_device(),
+        #         dtype=neox_args.params_dtype,
+        #     )
+        # )
+        # _initialize_affine_weight_gpu(
+        #     self.w1, init_method, partition_dim=0, stride=stride
+        # )
+
+        # # output
+        # self.w2 = torch.nn.Parameter(
+        #     torch.empty(
+        #         self.num_rows_per_rank,
+        #         self.hidden_size,
+        #         device=torch.cuda.current_device(),
+        #         dtype=neox_args.params_dtype,
+        #     )
+        # )
+        # _initialize_affine_weight_gpu(
+        #     self.w2, output_layer_init_method, partition_dim=0, stride=stride
+        # )
+
+        self.dense_h_to_4h = mpu.ColumnParallelLinear(
+            neox_args=neox_args,
+            input_size=neox_args.hidden_size,
+            output_size=self.num_rows_per_rank,
+            gather_output=False,
+            init_method=init_method,
+            skip_bias_add=True,
         )
-        _initialize_affine_weight_gpu(
-            self.w1, init_method, partition_dim=0, stride=stride
+        #ff_dim_in = ff_dim // 2 if self.activation_type == "geglu" else ff_dim
+        # Project back to h.
+        self.dense_4h_to_h = mpu.RowParallelLinear(
+            neox_args=neox_args,
+            input_size=self.num_rows_per_rank,
+            output_size=neox_args.hidden_size,
+            input_is_parallel=True,
+            init_method=output_layer_init_method,
+            skip_bias_add=True,
         )
 
-        # output
-        self.w2 = torch.nn.Parameter(
-            torch.empty(
-                self.num_rows_per_rank,
-                self.hidden_size,
-                device=torch.cuda.current_device(),
-                dtype=neox_args.params_dtype,
-            )
-        )
-        _initialize_affine_weight_gpu(
-            self.w2, output_layer_init_method, partition_dim=0, stride=stride
-        )
+
+
 
         # TODO: why do we need this? was in original megablocks code
         self.gradient_scale = None
@@ -211,18 +235,22 @@ class ParallelGroupedMLP(torch.nn.Module):
         return scale_gradient(w, self.gradient_scale)
 
     def forward(self, x: torch.Tensor):
-        #grouped_gemm_batch_sizes = tokens_per_expert.cpu().to(torch.long)
-        grouped_gemm_batch_sizes = torch.tensor([x.shape[0]]).cpu().to(torch.long)
-        w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
-
-        # Re-shape the weights for the grouped GEMMs
-        w1 = w1.view(self.experts_per_rank, -1, self.hidden_size)
-        w2 = w2.view(self.experts_per_rank, -1, self.hidden_size)
-
-        # Compute the MLP
-        x = gg.ops.gmm(x, w1, grouped_gemm_batch_sizes, trans_b=True)
+        x, bias_parallel = self.dense_h_to_4h(x)
         x = self.activation_func(x)
-        return gg.ops.gmm(x, w2, grouped_gemm_batch_sizes)
+        x, output_bias = self.dense_4h_to_h(x)
+        return x
+        #grouped_gemm_batch_sizes = tokens_per_expert.cpu().to(torch.long)
+        # grouped_gemm_batch_sizes = torch.tensor([x.shape[0]]).cpu().to(torch.long)
+        # w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
+
+        # # Re-shape the weights for the grouped GEMMs
+        # w1 = w1.view(self.experts_per_rank, -1, self.hidden_size)
+        # w2 = w2.view(self.experts_per_rank, -1, self.hidden_size)
+
+        # # Compute the MLP
+        # x = gg.ops.gmm(x, w1, grouped_gemm_batch_sizes, trans_b=True)
+        # x = self.activation_func(x)
+        # return gg.ops.gmm(x, w2, grouped_gemm_batch_sizes)
 
 
 class MemoryOptimizedParallelGroupedLLaMAMLP(torch.autograd.Function):

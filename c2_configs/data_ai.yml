@@ -20,6 +20,6 @@
   ],
 
   "vocab_file": "/net/scratch/zsarwar/Tokenizers/llama3/tokenizer.json",
-  "base_dir": "/net/scratch/zsarwar/exps",
+  "base_dir": "/net/projects2/mmairegroup/zsarwar/exps/",
 
 }

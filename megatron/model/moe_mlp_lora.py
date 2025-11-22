@@ -47,7 +47,6 @@ class ScaleGradient(torch.autograd.Function):
 scale_gradient = ScaleGradient.apply
 
 
-
 class ParallelGroupedLoRas(torch.nn.Module):
     def __init__(
         self,
@@ -410,12 +409,6 @@ class ParallelGroupedMLP(torch.nn.Module):
         # [s, b, h]
         
         # return output, output_bias
-
-
-
-
-
-
 
         # w1, w2 = (self.scale_grad(self.w1), self.scale_grad(self.w2))
 

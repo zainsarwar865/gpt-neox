@@ -48,6 +48,9 @@ from megatron.model.fused_bias_dropout import (
 )
 from megatron.model.utils import configure_sparse_attention
 
+from torch.profiler import profile, ProfilerActivity, record_function
+
+
 # flags required to enable jit fusion kernels
 torch._C._jit_set_profiling_mode(False)
 torch._C._jit_set_profiling_executor(False)
@@ -1109,7 +1112,9 @@ class ParallelTransformerLayer(nn.Module):
                 )
 
             # mlp operator
+
             mlp_output, mlp_bias = self.mlp(x2)
+            
             with torch.enable_grad():
                 output = bias_dropout_fn(
                     mlp_output,
@@ -1158,7 +1163,8 @@ class ParallelTransformerLayer(nn.Module):
             layernorm_output = self.post_attention_layernorm(attention_output)
 
             # call signatures of both dense and MoE are the same
-            mlp_output, mlp_bias = self.mlp(layernorm_output)
+            with record_function("MLP_Execution_Time"):
+                mlp_output, mlp_bias = self.mlp(layernorm_output)
 
             with torch.enable_grad():
                 # dense llama MLP and MoE don't support bias

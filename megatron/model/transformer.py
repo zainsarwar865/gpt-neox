@@ -1008,58 +1008,19 @@ class ParallelTransformerLayer(nn.Module):
             else:
                 raise KeyError(mlp_type)
 
-
-
         # Dense MLP
         branch = neox_args.branch
         orig_experts = neox_args.moe_num_experts
-        if branch == 'base-lora-moe':
-            if self.num_experts == 1:
-                from megatron.model.moe_lora import ParallelDroplessMoE
-                neox_args.moe_num_experts = 1
-            else:
-                from megatron.model.moe_base import ParallelDroplessMoE
-
-        if branch == 'base-base-moe':
-            from megatron.model.moe_base import ParallelDroplessMoE
-            if self.num_experts == 1:
-                neox_args.moe_num_experts = 1
                 
-        elif branch == 'base-moe':
+        if branch == 'base-moe':
             from megatron.model.moe_base import ParallelDroplessMoE
         elif branch == 'lora':
             from megatron.model.moe_lora import ParallelDroplessMoE
-        elif branch == 'hetro':
-            from megatron.model.moe_hetro import ParallelDroplessMoE
-        
         self.mlp = ParallelDroplessMoE(
             neox_args=neox_args,
             init_method=init_method,
             output_layer_init_method=output_layer_init_method,
         )
-
-        # restore moe_num_experts
-        if branch == 'base-lora-moe' and self.num_experts == 1:
-            neox_args.moe_num_experts = orig_experts
-
-        if branch == 'base-base-moe' and self.num_experts == 1:
-            neox_args.moe_num_experts = orig_experts
-
-        # # Dense MLP
-        # branch = neox_args.branch
-        # if branch == 'base-moe':
-        #     from megatron.model.moe_base import ParallelDroplessMoE
-        # elif branch == 'lora':
-        #     from megatron.model.moe_lora import ParallelDroplessMoE
-        # elif branch == 'hetro':
-        #     from megatron.model.moe_hetro import ParallelDroplessMoE
-        
-        
-        # self.mlp = ParallelDroplessMoE(
-        #     neox_args=neox_args,
-        #     init_method=init_method,
-        #     output_layer_init_method=output_layer_init_method,
-        # )
 
         self.layer_past = None  # used to cache k/v pairs in inference
 

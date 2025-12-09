@@ -367,7 +367,10 @@ class TopKTokenChoiceRouter(torch.nn.Module):
 
         with torch.no_grad():
             expert_indices_ft = expert_indices.flatten()
-            tokens_per_expert = megablocks.ops.histogram(expert_indices_ft, self.num_experts)
+            # tokens_per_expert = megablocks.ops.histogram(expert_indices_ft, self.num_experts)
+            tokens_per_expert = torch.bincount(
+                expert_indices_ft, minlength=self.num_experts)
+
 
         # expert_weights = self.apply_load_balancing_loss(scores, tokens_per_expert, activation=expert_weights)
         # expert_weights probability mass won't add up to 1 because we took

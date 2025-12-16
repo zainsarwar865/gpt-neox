@@ -126,24 +126,22 @@ class ParallelGroupedMLP(torch.nn.Module):
             device=torch.cuda.current_device(),
         )
         
-        self.dense_h_to_4h = mpu.ColumnParallelLinear(
-            neox_args=neox_args,
-            input_size=neox_args.hidden_size,
-            output_size=neox_args.intermediate_size,
-            gather_output=False,
-            init_method=init_method,
-            skip_bias_add=True,
-        )
 
-        # Project back to h.
-        self.dense_4h_to_h = mpu.RowParallelLinear(
-            neox_args=neox_args,
-            input_size=neox_args.intermediate_size,
-            output_size=neox_args.hidden_size,
-            input_is_parallel=True,
-            init_method=output_layer_init_method,
-            skip_bias_add=True,
+
+        self.dense_h_to_4h = nn.Parameter(
+            torch.empty(neox_args.hidden_size, neox_args.intermediate_size, dtype=neox_args.params_dtype, device=torch.cuda.current_device())
         )
+        init_method(self.dense_h_to_4h)
+
+
+
+        self.dense_4h_to_h = nn.Parameter(
+            torch.empty( neox_args.intermediate_size,neox_args.hidden_size, dtype=neox_args.params_dtype, device=torch.cuda.current_device())
+        )
+        init_method(self.dense_4h_to_h)
+
+
+
 
         self.gradient_scale = None
         if world_size > 1:
@@ -158,39 +156,6 @@ class ParallelGroupedMLP(torch.nn.Module):
             return w
         return scale_gradient(w, self.gradient_scale)
     
-    # def forward(self, x: torch.Tensor):
-    
-    #     lora_weights, lora_indices = self.LoRaRouter(x)
-    #     lora_weights = lora_weights.flatten()
-    #     lora_indices = lora_indices.flatten()
-    
-    #     with torch.no_grad():
-    #         indices, lora_ids, lora_bins, tokens_per_lora = self.indices_and_bins(
-    #             lora_indices
-    #         )
-    #     x_1_loras = self.permute_and_compute(
-    #         x,
-    #         tokens_per_lora,
-    #         indices,
-    #         lora_ids,
-    #         lora_weights,
-    #         lora_bins,
-    #         self.LoRaRouter.top_k,
-    #         1,
-    #     )
-
-    #     x, bias_parallel = self.dense_h_to_4h(x)
-
-    #     if self.args.lora_interaction_type == 'addition':          
-    #         x = x + x_1_loras
-    #         x = self.activation_func(x)
-    #     elif self.args.lora_interaction_type == 'geglu':
-    #         x = x_1_loras * self.activation_func(x)
-    #     else:
-    #         raise("LoRe interaction not defined")
-
-    #     x, output_bias = self.dense_4h_to_h(x)
-    #     return x
 
     def forward(self, x: torch.Tensor):
         """
@@ -202,7 +167,7 @@ class ParallelGroupedMLP(torch.nn.Module):
         lora_weights = lora_weights.view(T, self.LoRaRouter.top_k)
         lora_indices = lora_indices.view(T, self.LoRaRouter.top_k)
         # 2) Base up-projection (TP-local output)
-        up_local, bias_parallel = self.dense_h_to_4h(x)            # [T, Dffp_local]
+        up_local = x @ self.dense_h_to_4h            # [T, Dffp_local]
         # 3) Dense-LoRE up-projection to the SAME local shape
         x_flat = x.view(-1, x.shape[-1])                           # [T, H]
         lore_local = self.dense_lore_up(x_flat, lora_weights, lora_indices)  # [T, Dffp_local]
@@ -210,5 +175,48 @@ class ParallelGroupedMLP(torch.nn.Module):
         x = self.activation_func(up_local + lore_local)
 
         # 5) Down-projection (RowParallel)
-        x, out_bias = self.dense_4h_to_h(x)
-        return x
+        
+        return x @ self.dense_4h_to_h
+    
+
+    # def forward(self, x):
+    #     lora_weights, lora_indices = self.LoRaRouter(x)
+    #     T = lora_weights.numel() // self.LoRaRouter.top_k
+    #     lora_weights = lora_weights.view(T, self.LoRaRouter.top_k)
+    #     lora_indices = lora_indices.view(T, self.LoRaRouter.top_k)
+
+    #     if torch.any(lora_indices >= self.num_loras):
+    #         pass
+    #         # bad = lora_indices[lora_indices >= self.num_loras]
+    #         # print("BAD ROUTER INDICES!", bad[:10], "num_loras=", self.num_loras)
+    #         # raise RuntimeError("Router produced out-of-range indices.")
+
+    #     # assert torch.all(lora_indices < self.num_loras), \
+    #     #     f"Invalid router indices! max={lora_indices.max().item()} num_loras={self.num_loras}"
+
+
+
+    #     x_flat = x.view(-1, x.shape[-1])
+
+    #     # REAL output dimension of W1
+    #     Dff_local = self.dense_h_to_4h.shape[1]
+
+    #     stream0 = torch.cuda.current_stream()
+    #     stream1 = torch.cuda.Stream()
+
+    #     up_local    = torch.empty(T, Dff_local, device=x.device, dtype=x.dtype)
+    #     lore_local = torch.empty(T, Dff_local, device=x.device, dtype=x.dtype)
+
+    #     # Dense W1 on stream0
+    #     with torch.cuda.stream(stream0):
+    #         up_local.copy_(x_flat @ self.dense_h_to_4h)
+
+    #     # LoRE on stream1
+    #     with torch.cuda.stream(stream1):
+    #         lore_local.copy_(self.dense_lore_up(x_flat, lora_weights, lora_indices))
+
+    #     # Sync lore stream
+    #     torch.cuda.current_stream().wait_stream(stream1)
+
+    #     fused = self.activation_func(up_local + lore_local)
+    #     return fused @ self.dense_4h_to_h

@@ -110,14 +110,22 @@ class ParallelGroupedMLP(torch.nn.Module):
 
 
         # Project back to h.
-        self.dense_4h_to_h = mpu.RowParallelLinear(
-            neox_args=neox_args,
-            input_size=neox_args.intermediate_size,
-            output_size=neox_args.hidden_size,
-            input_is_parallel=True,
-            init_method=output_layer_init_method,
-            skip_bias_add=True,
+        # self.dense_4h_to_h = mpu.RowParallelLinear(
+        #     neox_args=neox_args,
+        #     input_size=neox_args.intermediate_size,
+        #     output_size=neox_args.hidden_size,
+        #     input_is_parallel=True,
+        #     init_method=output_layer_init_method,
+        #     skip_bias_add=True,
+        # )
+
+        self.dense_4h_to_h = nn.Parameter(
+            torch.empty( neox_args.intermediate_size,neox_args.hidden_size, dtype=neox_args.params_dtype, device=torch.cuda.current_device())
         )
+        init_method(self.dense_4h_to_h)
+
+
+
 
         self.gradient_scale = None
         if world_size > 1:
@@ -156,12 +164,12 @@ class ParallelGroupedMLP(torch.nn.Module):
         beta = self.build_beta(w, idx, self.num_loras)
 
         # ------- Fused up-projection -------
-        up = self.up_fused(x_flat, beta)     # [T, Dff]
+        x_flat = self.up_fused(x_flat, beta)     # [T, Dff]
 
         # Activation
-        h = self.activation_func(up)
+        x_flat = self.activation_func(x_flat)
 
         # Down-projection (TP-aware)
-        out, _ = self.dense_4h_to_h(h)       # [T, H]
+        return (x_flat @ self.dense_4h_to_h).view_as(x)       # [T, H]
 
-        return out.view_as(x)
+        # return out.view_as(x)

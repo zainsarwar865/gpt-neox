@@ -77,13 +77,11 @@ class DenseLoREUpProj(nn.Module):
         if self._cached_shapes != (self.A.shape, self.B.shape):
             self._A_stack, self._B_stack = self._stack_weights()
             self._cached_shapes = (self.A.shape, self.B.shape)
-
         beta = self._build_beta(T, topk_weights, topk_indices, self.L)  # [T, L]
-
         # GEMM 1
         S = X @ self._A_stack                          # [T, L*r]
         S = S.view(T, self.L, self.r) * beta.unsqueeze(-1)
-        Y = S @ self._B_stack    
+        # Y = S @ self._B_stack    
         # GEMM 2
         Y = S.reshape(T, self.L * self.r) @ self._B_stack  # [T, Dffp_local]
         return Y

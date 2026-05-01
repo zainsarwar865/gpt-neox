@@ -1,10 +1,3 @@
-# This file is based on code by the authors denoted below and has been modified from its original version.
-#
-# Copyright (c) 2023 MegaBlocks authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-
 from typing import Optional
 import numpy as np
 import torch
@@ -17,8 +10,6 @@ from megatron.mpu import gather_from_expert_model_parallel_region
 from megatron.neox_arguments.arguments import NeoXArgs
 from .moe_mlp_lora import  ParallelGroupedMLP
 
-# import torch._dynamo
-# torch._dynamo.config.suppress_errors = True
 
 
 class ParallelDroplessMLP(torch.nn.Module):

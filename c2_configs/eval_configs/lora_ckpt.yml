@@ -1,3 +1,3 @@
 {
-   "load": 'none'
+   "load": '/net/projects2/mmairegroup/zsarwar/exps/GPT_experts-1-topk-1-layers24-heads-32-lora/403f739359776443dd3413c2972172b6/master-0-403f739359776443dd3413c2972172b6/checkpoints/'
 }

@@ -8,7 +8,7 @@ import argparse
 from scipy.ndimage import gaussian_filter1d
 
 
-DUMP_DIR = "/home/zsarwar/Projects/CODE/Code/gpt_neox/c2_configs/bash_scripts/tokens_per_lora_dumps"
+DUMP_DIR = "/home/zsarwar/Projects/CODE/Code/gpt_neox_old/c2_configs/bash_scripts/tokens_per_lora_dumps/"
 OUTPUT_DIR = os.path.join(DUMP_DIR, "plots")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -52,18 +52,27 @@ def plot_distribution(normalized, step, smooth_sigma):
     fig, ax = plt.subplots(figsize=(12, 6))
     cumulative = np.zeros_like(x, dtype=np.float32)
 
+    # --- 1. Generate unique colors ---
+    # 'gist_rainbow' or 'turbo' are good for a high number of SMs
+    # 'tab20' is great if you have <= 20 SMs
+
+    
+    colors = plt.get_cmap("tab20")(np.linspace(0, 1, lora_count))
+    bold_colors = list(plt.get_cmap("tab10").colors) + list(plt.get_cmap("Dark2").colors[:6])
+
+
+
     for i in range(lora_count):
         y = y_values[:, i]
-        ax.fill_between(x, cumulative, cumulative + y, label=f"LoRE {i}", alpha=0.7)
-        
+        ax.fill_between(x, cumulative, cumulative + y, label=f"SM {i}", alpha=0.7, color=bold_colors[i])
         cumulative += y
 
     title_font = {"fontsize": 16}
     label_font = {"fontsize": 14}
 
-    ax.set_title(f"Layerwise Token-LoRE Routing Distribution", fontdict=title_font)
+    #ax.set_title(f"Layerwise Token-LoRE Routing Distribution", fontdict=title_font)
     ax.set_xlabel("Layer Index", fontdict=label_font)
-    ax.set_ylabel("Cumulative Portion of Tokens",fontdict=label_font)
+    ax.set_ylabel("Fraction of Tokens Seen by each SM",fontdict=label_font)
     ax.set_ylim(0, 1)
     ax.set_xlim(x[0], x[-1])
     # ax.legend(loc="upper right", bbox_to_anchor=(1.15, 1.0), fontsize="small", ncol=2)

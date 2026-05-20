@@ -17,7 +17,7 @@ export LD_LIBRARY_PATH=/opt/amazon/openmpi/lib:$LD_LIBRARY_PATH
 ## Setup a conda environment in c_envs
 cd c_envs
 
-conda create --prefix `pwd`/c_gptneox python==3.8.19
+conda create --prefix `pwd`/c_gptneox python==Python 3.12.12
 
 ## Install apex
 cd ..

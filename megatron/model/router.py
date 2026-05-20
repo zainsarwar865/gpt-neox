@@ -114,8 +114,8 @@ class TopKTokenChoiceRouter(torch.nn.Module):
         global_counts = local_counts.clone()
         torch.distributed.all_reduce(global_counts, op=torch.distributed.ReduceOp.SUM)
 
-        if self.args.iteration % 20 == 0:                    
-            print_rank_0(global_counts)
+        # if self.args.iteration % 20 == 0:                    
+        #     print_rank_0(global_counts)
 
         total_tokens_global = global_counts.sum()
 

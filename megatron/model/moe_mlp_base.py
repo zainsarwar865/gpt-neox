@@ -44,6 +44,63 @@ class ScaleGradient(torch.autograd.Function):
 
 scale_gradient = ScaleGradient.apply
 
+# class ParallelGroupedMLP(torch.nn.Module):
+#     def __init__(
+#         self,
+#         neox_args: NeoXArgs,
+#         init_method,
+#         output_layer_init_method,
+#         stride=1,
+#         multiple_of=256,
+#     ):
+#         """
+#         Copied from SparseMLP
+#         """
+#         super(ParallelGroupedMLP, self).__init__()
+
+#         self.activation_func = get_activation(neox_args)
+#         self.activation_type = neox_args.activation
+
+#         world_size = get_model_parallel_world_size()
+
+#         self.hidden_size = neox_args.hidden_size
+
+#         self.dense_h_to_4h = mpu.ColumnParallelLinear(
+#             neox_args=neox_args,
+#             input_size=neox_args.hidden_size,
+#             output_size=neox_args.intermediate_size,
+#             gather_output=False,
+#             init_method=init_method,
+#             skip_bias_add=True,
+#         )
+
+#         self.dense_4h_to_h = mpu.RowParallelLinear(
+#             neox_args=neox_args,
+#             input_size=neox_args.intermediate_size,
+#             output_size=neox_args.hidden_size,
+#             input_is_parallel=True,
+#             init_method=output_layer_init_method,
+#             skip_bias_add=True,
+#         )
+
+#         self.gradient_scale = None
+#         if world_size > 1:
+#             self.gradient_scale = 1 / world_size
+
+#     def scale_grad(self, w: torch.Tensor):
+#         """
+#         Copied from SparseMLP
+#         """
+#         if self.gradient_scale is None:
+#             return w
+#         return scale_gradient(w, self.gradient_scale)
+
+#     def forward(self, x: torch.Tensor):
+#         x, bias_parallel = self.dense_h_to_4h(x)
+#         x = self.activation_func(x)
+#         x, output_bias = self.dense_4h_to_h(x)
+#         return x
+
 
 
 class ParallelGroupedMLP(torch.nn.Module):
@@ -55,9 +112,6 @@ class ParallelGroupedMLP(torch.nn.Module):
         stride=1,
         multiple_of=256,
     ):
-        """
-        Copied from SparseMLP
-        """
         super(ParallelGroupedMLP, self).__init__()
 
         self.activation_func = get_activation(neox_args)
@@ -67,7 +121,17 @@ class ParallelGroupedMLP(torch.nn.Module):
 
         self.hidden_size = neox_args.hidden_size
 
-        self.dense_h_to_4h = mpu.ColumnParallelLinear(
+        
+        self.dense_h_to_4h_gate = mpu.ColumnParallelLinear(
+            neox_args=neox_args,
+            input_size=neox_args.hidden_size,
+            output_size=neox_args.intermediate_size,
+            gather_output=False,
+            init_method=init_method,
+            skip_bias_add=True,
+        )
+
+        self.dense_h_to_4h_value = mpu.ColumnParallelLinear(
             neox_args=neox_args,
             input_size=neox_args.hidden_size,
             output_size=neox_args.intermediate_size,
@@ -90,15 +154,13 @@ class ParallelGroupedMLP(torch.nn.Module):
             self.gradient_scale = 1 / world_size
 
     def scale_grad(self, w: torch.Tensor):
-        """
-        Copied from SparseMLP
-        """
         if self.gradient_scale is None:
             return w
         return scale_gradient(w, self.gradient_scale)
 
     def forward(self, x: torch.Tensor):
-        x, bias_parallel = self.dense_h_to_4h(x)
-        x = self.activation_func(x)
-        x, output_bias = self.dense_4h_to_h(x)
+        gate, _ = self.dense_h_to_4h_gate(x)
+        value, _ = self.dense_h_to_4h_value(x)
+        x = self.activation_func(gate) * value
+        x, _ = self.dense_4h_to_h(x)
         return x

@@ -236,50 +236,33 @@ class TopKTokenChoiceRouter(torch.nn.Module):
 
     def forward(self, x):
         """
-        Forward pass through the Learned Router.
+        Forward pass through the router using random (input-independent) routing.
 
         Args:
-            x (torch.Tensor): Input tensor to be routed.
-                (sl, bs, hs)
+            x (torch.Tensor): (sl, bs, hs)
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Tuple containing
-                - expert_weights (sl * bs, top_k): Weights assigned to the selected experts
-                - expert_indices (sl * bs, top_k): Indices of the selected experts
+            expert_weights: (sl * bs, 1)
+            expert_indices: (sl * bs, 1)
         """
-        if self.training and self.jitter_eps is not None:
-            x = x * self.jitter(x)
 
-        # x.view shape: (sl * bs, hs)...every token as a row
-        # scores (float) shape: (sl * bs, num_experts)...expert rankings for every token
-        scores = self.layer(x.view(-1, x.shape[-1])).softmax(dim=-1)
-        #logits, z_loss = self.apply_z_loss(logits)
-        #z_loss_temp = z_loss.detach()
+        num_tokens = x.shape[0] * x.shape[1]
 
-
-        # expert_weights (float) shape: (sl * bs, top_k)...value(s) from scores corresponding to the top_k experts
-        # expert_indices (int) shape: (sl * bs, top_k)...index(indices) from scores corresponding to the top_k experts
-        expert_weights, expert_indices = self._top_k(scores)
-
-        with torch.no_grad():
-            expert_indices_ft = expert_indices.flatten()
-            # tokens_per_expert = megablocks.ops.histogram(expert_indices_ft, self.num_experts)
-            tokens_per_expert = torch.bincount(
-                expert_indices_ft, minlength=self.num_experts)
-
-
-        # ---- GLOBAL LOAD BALANCING LOSS (paper exact Eq. 4–6) ----
-        aux_loss = self.switch_load_balancing_loss_func(
-            probs=scores,                # full softmax distribution [T, E]
-            selected_expert_ids=expert_indices,  # top-k expert IDs [T, k]
-            topk=self.top_k,
-            moe_aux_loss_coeff=self.aux_loss_coeff
+        # Uniformly sample one expert per token.
+        expert_indices = torch.randint(
+            low=0,
+            high=self.num_experts,
+            size=(num_tokens, 1),
+            device=x.device,
         )
 
-        expert_weights = MoEAuxLossAutoScaler.apply(expert_weights, aux_loss)
-        # expert_weights probability mass won't add up to 1 because we took
-        # the topk scores from the softmax
-        # TODO: placeholder for moe_normalize_expert_weights if necessary
+        # Give every selected expert weight 1.0.
+        expert_weights = torch.ones(
+            (num_tokens, 1),
+            device=x.device,
+            dtype=x.dtype,
+        )
+
         return expert_weights, expert_indices
 
 
